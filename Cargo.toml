@@ -1,0 +1,14 @@
+[package]
+name = "levrem"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = "1.0.126"
+serde_derive = "1.0.0"
+serde_json = "1.0.64"
+ureq = "2.4.0"
+sled = "0.34.1"
+clap = "2.25.1"
