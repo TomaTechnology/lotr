@@ -3,7 +3,6 @@
 ## a cli tool to facilitate multi-party bitcoin contracts
 
 
-
 ### Installation
 
 First install rust's toolkit

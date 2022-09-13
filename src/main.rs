@@ -42,7 +42,7 @@ fn main() {
                 )
                 .subcommand(
                     Command::new("import")
-                    .about("Import a Master Key.")
+                    .about("Import a Master Key From an External Device. *SAFER - NO PRINT*")
                     .display_order(1)
                     .arg(
                         Arg::with_name("username")
@@ -158,7 +158,6 @@ fn main() {
                         std::io::stdout().flush().unwrap();
                         let password = read_password().unwrap();   
 
-
                         let seed = match seed::import(&mnemonic, "", Network::Bitcoin) {
                             Ok(master_key) => {
                                 master_key
@@ -212,7 +211,7 @@ fn main() {
                         if status == true {
                             println!("===============================================");
                             println!("Master Key Details (Create physical backups!):\n");
-                            println!("FingerPrint:{:#?}\nMnemonic:{:#?}", seed.fingerprint, seed.mnemonic);
+                            println!("FingerPrint:{:#?}", seed.fingerprint);
                             println!("===============================================");
                         }
                         else{
