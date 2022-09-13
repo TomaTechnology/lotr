@@ -69,6 +69,13 @@ fn main() {
                     Command::new("delete")
                     .about("Delete Master Key from disk.")
                     .display_order(5)
+                    .arg(
+                        Arg::with_name("username")
+                        .takes_value(true)
+                        .short('u')
+                        .long("username")
+                        .help("Choose which Master Key to delete by username.")
+                    )   
                 )   
         )
         .get_matches();
@@ -111,7 +118,7 @@ fn main() {
                         };
 
                         let key_store = storage::KeyStore::new(username,child_social.clone(),child_money.clone());
-                        let encryped = key_store.encrypt(&password);
+                        let encrypted = key_store.encrypt(&password);
                         let db = storage::get_root(storage::LotrDatabase::MasterKey).unwrap();
                         let dup_check = storage::read(db.clone(), username);
                         match dup_check{
@@ -132,7 +139,7 @@ fn main() {
                                     panic!("500");                                }
                             }
                         }
-                        let status = storage::create(db.clone(),encryped.clone()).unwrap();
+                        let status = storage::create(db.clone(),encrypted.clone()).unwrap();
                         if status == true {
                             println!("===============================================");
                             println!("Master Key Details (Create physical backups!):\n");
@@ -182,7 +189,7 @@ fn main() {
                         };
 
                         let key_store = storage::KeyStore::new(username,child_social.clone(),child_money.clone());
-                        let encryped = key_store.encrypt(&password);
+                        let encrypted = key_store.encrypt(&password);
                         let db = storage::get_root(storage::LotrDatabase::MasterKey).unwrap();
                         let dup_check = storage::read(db.clone(), username);
                         match dup_check{
@@ -203,7 +210,7 @@ fn main() {
                                     panic!("500");                                }
                             }
                         }
-                        let status = storage::create(db.clone(),encryped.clone()).unwrap();
+                        let status = storage::create(db.clone(),encrypted.clone()).unwrap();
                         if status == true {
                             println!("===============================================");
                             println!("Master Key Details (Create physical backups!):\n");
@@ -218,10 +225,41 @@ fn main() {
                         }
                     }
                     Some(("status", _sub_matches)) => {
-                        
+                        let usernames = storage::get_username_indexes();
+                        println!("===============================================");
+                        println!("The following master keys are saved:\n{:#?}", usernames);
+                        println!("===============================================");
                     }
-                    Some(("delete", _sub_matches)) => {
-                        println!("Deleting Master Key...")
+                    Some(("delete", sub_matches)) => {
+                        let matches = &sub_matches.clone();
+                        let username = matches.value_of("username").unwrap();
+                        let db = storage::get_root(storage::LotrDatabase::MasterKey).unwrap();
+                        let dup_check = storage::read(db.clone(), username);
+                        match dup_check{
+                            Ok(_)=>{
+                                ()
+                            }
+                            Err(e)=>{
+                                println!("===============================================");
+                                println!("{:#?}",e);
+                                println!("===============================================");
+                                panic!("500");                                
+                            }
+                        }
+
+                        let status = storage::delete(db.clone(),username);
+                        if status == true{
+                            println!("===============================================");
+                            println!("Successfully deleted master key record: {:#?}", username);
+                            println!("===============================================");
+                        }
+                        else{
+                            println!("===============================================");
+                            println!("COULD NOT DELETE MASTER KEY DATABASE!");
+                            println!("===============================================");
+                            panic!("500");  
+                        }
+
                     }
                 _ => unreachable!(),
             }

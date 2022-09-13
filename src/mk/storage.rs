@@ -131,6 +131,23 @@ fn get_tree(root: Db, index: &str) -> Result<Tree, String> {
     }
 }
 
+/// Retrives all tree indexes in a db
+pub fn get_username_indexes() -> Vec<String>{
+    let root = get_root(LotrDatabase::MasterKey).unwrap();
+    let mut unames: Vec<String> = [].to_vec();
+    for key in root.tree_names().iter() {
+        
+        let username = str::from_utf8(key).unwrap();
+        if username == "__sled__default"{
+            ()
+        }
+        else{
+            unames.push(username.to_string());
+        }
+    }
+    unames
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
