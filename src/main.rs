@@ -45,13 +45,6 @@ fn main() {
                     .about("Import a Master Key.")
                     .display_order(1)
                     .arg(
-                        Arg::with_name("mnemonic")
-                        .takes_value(true)
-                        .short('m')
-                        .long("mnemonic")
-                        .help("24 word mnemonic seed phrase.")
-                    )
-                    .arg(
                         Arg::with_name("username")
                         .takes_value(true)
                         .short('u')
@@ -156,12 +149,17 @@ fn main() {
                     Some(("import", sub_matches)) => {
                         let matches = &sub_matches.clone();
                         let username = matches.value_of("username").unwrap();
-                        let mnemonic = matches.value_of("mnemonic").unwrap();
+
+                        print!("Paste your menmonic seed phrase: ");
+                        std::io::stdout().flush().unwrap();
+                        let mnemonic = read_password().unwrap();   
 
                         print!("Choose a password to encrypt your key: ");
                         std::io::stdout().flush().unwrap();
                         let password = read_password().unwrap();   
-                        let seed = match seed::import(mnemonic, "", Network::Bitcoin) {
+
+
+                        let seed = match seed::import(&mnemonic, "", Network::Bitcoin) {
                             Ok(master_key) => {
                                 master_key
                             },
