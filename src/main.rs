@@ -1,64 +1,72 @@
 #![allow(dead_code)]
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, Command};
+extern crate rpassword;    
+use rpassword::read_password;
+use std::io::Write;
+use bitcoin::network::constants::Network;
+
+mod mk;
+use crate::mk::seed;
+use crate::mk::child;
+use crate::mk::storage;
+
+mod e;
+use crate::e::{ErrorKind, S5Error};
+
+
+mod config;
 
 fn main() {
-    let matches = App::new("\x1b[0;92mlevrem\x1b[0m")
+    let matches = App::new("\x1b[0;92mlotr\x1b[0m")
         .about("\x1b[0;94mLeverage Of The Remnants\x1b[0m")
         .version("\x1b[0;1m0.0.1\x1b[0m")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("ishi@toma.tech")
         .subcommand(
-            App::new("mk")
+            Command::new("mk")
                 .about("Master Key Ops")
                 .display_order(3)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
-                    App::new("generate")
-                    .about("List all running services.")
+                    Command::new("generate")
+                    .about("Generate a Master Key.")
                     .display_order(0)
                     .arg(
                         Arg::with_name("username")
-                        .short("u")
+                        .takes_value(true)
+                        .short('u')
+                        .long("username")
                         .help("Give your Master Key a username. Username will be used with cypherpost.")
-                    )
+                    )   
+                    .arg_required_else_help(true),  
                 )
                 .subcommand(
-                    App::new("import")
-                    .about("Main cyphernode commands.")
+                    Command::new("import")
+                    .about("Import a Master Key.")
                     .display_order(1)
                     .arg(
                         Arg::with_name("mnemonic")
-                        .short("m")
+                        .takes_value(true)
+                        .short('m')
+                        .long("mnemonic")
                         .help("24 word mnemonic seed phrase.")
                     )
+                    .arg(
+                        Arg::with_name("username")
+                        .takes_value(true)
+                        .short('u')
+                        .long("username")
+                        .help("Give your Master Key a username. If already registered on cypherpost - username must match.")
+                    )   
+                    .arg_required_else_help(true),  
                 )
                 .subcommand(
-                    App::new("status")
+                    Command::new("status")
                     .about("Status on whether Master Key exists and its associated username.")
                     .display_order(2)
                 )
                 .subcommand(
-                    App::new("seal")
-                    .about("Encrypt derived wallet xprv path of Master Key.")
-                    .display_order(3)
-                    .arg(
-                        Arg::with_name("password")
-                        .short("p")
-                        .help("Use a strong password to encrypt your Master Key wallet path at rest.")
-                    )
-                )
-                .subcommand(
-                    App::new("unseal")
-                    .about("Decrypt derived wallet xprv path of Master Key.")
-                    .display_order(3)
-                    .arg(
-                        Arg::with_name("password")
-                        .short("p")
-                        .help("Use a strong password to encrypt your Master Key wallet path at rest.")
-                    )
-                )
-                .subcommand(
-                    App::new("delete")
+                    Command::new("delete")
                     .about("Delete Master Key from disk.")
                     .display_order(5)
                 )   
@@ -67,30 +75,158 @@ fn main() {
     
     match matches.subcommand() {
 
-        ("mk", Some(service_matches)) => {
+        Some(("mk", service_matches)) => {
             match service_matches.subcommand() {
-                    ("generate", Some(_)) => {
-                        println!("Generating a Master Key...")
+                    Some(("generate", sub_matches)) => {
+                        let matches =  &sub_matches.clone();
+                        let username = matches.value_of("username").unwrap();
+                        print!("Choose a password to encrypt your key: ");
+                        std::io::stdout().flush().unwrap();
+                        let password = read_password().unwrap();   
+                        let seed = match seed::generate(24, "", Network::Bitcoin) {
+                            Ok(master_key) => {
+                                master_key
+                            },
+                            Err(e) => {
+                                println!("{:?}", e);
+                                panic!("500");
+                            },
+                        };
+
+                        let social_path = "m/128h/0h";
+                        let child_social = match child::to_path_str(&seed.xprv,social_path){
+                            Ok(keys)=>keys,
+                            Err(e)=>{
+                                println!("{:?}", e);
+                                panic!("500");
+                            }
+                        };
+
+                        let child_money = match child::to_hardened_account(&seed.xprv,child::DerivationPurpose::Native,0){
+                            Ok(keys)=> keys,
+                            Err(e)=>{
+                                println!("{:?}", e);
+                                panic!("500");
+                            }
+                        };
+
+                        let key_store = storage::KeyStore::new(username,child_social.clone(),child_money.clone());
+                        let encryped = key_store.encrypt(&password);
+                        let db = storage::get_root(storage::LotrDatabase::MasterKey).unwrap();
+                        let dup_check = storage::read(db.clone(), username);
+                        match dup_check{
+                            Ok(_)=>{
+                                println!("===============================================");
+                                println!("MASTER KEY WITH THIS USERNAME ALREADY EXISTS");
+                                println!("===============================================");
+                                panic!("409");
+                            }
+                            Err(e)=>{
+                                if e.kind == ErrorKind::Input.to_string(){
+                                    println!("Creating new master key database...");
+                                }
+                                else{
+                                    println!("===============================================");
+                                    println!("{:#?}",e);
+                                    println!("===============================================");
+                                    panic!("500");                                }
+                            }
+                        }
+                        let status = storage::create(db.clone(),encryped.clone()).unwrap();
+                        if status == true {
+                            println!("===============================================");
+                            println!("Master Key Details (Create physical backups!):\n");
+                            println!("FingerPrint:{:#?}\nMnemonic:{:#?}", seed.fingerprint, seed.mnemonic);
+                            println!("===============================================");
+                        }
+                        else{
+                            println!("===============================================");
+                            println!("ERROR STORING MASTER KEY: CONTACT ishi@toma.tech");
+                            println!("===============================================");
+
+                        }
                     }
-                    ("import", Some(_)) => {
-                        println!("Importing a Master Key...")
+                    Some(("import", sub_matches)) => {
+                        let matches = &sub_matches.clone();
+                        let username = matches.value_of("username").unwrap();
+                        let mnemonic = matches.value_of("mnemonic").unwrap();
+
+                        print!("Choose a password to encrypt your key: ");
+                        std::io::stdout().flush().unwrap();
+                        let password = read_password().unwrap();   
+                        let seed = match seed::import(mnemonic, "", Network::Bitcoin) {
+                            Ok(master_key) => {
+                                master_key
+                            },
+                            Err(e) => {
+                                println!("{:?}", e);
+                                panic!("500");
+                            },
+                        };
+
+                        let social_path = "m/128h/0h";
+                        let child_social = match child::to_path_str(&seed.xprv,social_path){
+                            Ok(keys)=>keys,
+                            Err(e)=>{
+                                println!("{:?}", e);
+                                panic!("500");
+                            }
+                        };
+
+                        let child_money = match child::to_hardened_account(&seed.xprv,child::DerivationPurpose::Native,0){
+                            Ok(keys)=> keys,
+                            Err(e)=>{
+                                println!("{:?}", e);
+                                panic!("500");
+                            }
+                        };
+
+                        let key_store = storage::KeyStore::new(username,child_social.clone(),child_money.clone());
+                        let encryped = key_store.encrypt(&password);
+                        let db = storage::get_root(storage::LotrDatabase::MasterKey).unwrap();
+                        let dup_check = storage::read(db.clone(), username);
+                        match dup_check{
+                            Ok(_)=>{
+                                println!("===============================================");
+                                println!("MASTER KEY WITH THIS USERNAME ALREADY EXISTS");
+                                println!("===============================================");
+                                panic!("409");
+                            }
+                            Err(e)=>{
+                                if e.kind == ErrorKind::Input.to_string(){
+                                    println!("Creating new master key database...");
+                                }
+                                else{
+                                    println!("===============================================");
+                                    println!("{:#?}",e);
+                                    println!("===============================================");
+                                    panic!("500");                                }
+                            }
+                        }
+                        let status = storage::create(db.clone(),encryped.clone()).unwrap();
+                        if status == true {
+                            println!("===============================================");
+                            println!("Master Key Details (Create physical backups!):\n");
+                            println!("FingerPrint:{:#?}\nMnemonic:{:#?}", seed.fingerprint, seed.mnemonic);
+                            println!("===============================================");
+                        }
+                        else{
+                            println!("===============================================");
+                            println!("ERROR STORING MASTER KEY: CONTACT ishi@toma.tech");
+                            println!("===============================================");
+
+                        }
                     }
-                    ("status", Some(_)) => {
-                        println!("Fetching Master Key status...")
+                    Some(("status", _sub_matches)) => {
+                        
                     }
-                    ("seal", Some(_)) => {
-                        println!("Sealing Master Key wallet path...")
-                    }
-                    ("unseal", Some(_)) => {
-                        println!("Unsealing Master Key wallet path...")
-                    }
-                    ("delete", Some(_)) => {
+                    Some(("delete", _sub_matches)) => {
                         println!("Deleting Master Key...")
                     }
                 _ => unreachable!(),
             }
         }
-        ("",None) => println!("No subcommand was used. try `lotr help`."), 
+        None => println!("No subcommand was used. try `lotr help`."), 
         _ => unreachable!(),
     }
 }
