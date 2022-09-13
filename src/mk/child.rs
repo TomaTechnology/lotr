@@ -18,19 +18,19 @@ pub struct ChildKeys {
 impl ChildKeys {
     pub fn stringify(&self) -> Result<String, S5Error> {
         match serde_json::to_string(self) {
-            Ok(result) => return Ok(result),
+            Ok(result) => Ok(result),
             Err(_) => {
-                return Err(S5Error::new(ErrorKind::Internal, "Error stringifying ChildKeys"))
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying ChildKeys"))
             }
         }
     }
     pub fn structify(stringified: &str) -> Result<ChildKeys, S5Error> {
         match serde_json::from_str(stringified) {
-            Ok(result) => return Ok(result),
+            Ok(result) => Ok(result),
             Err(_) => {
-                return Err(S5Error::new(ErrorKind::Internal, "Error stringifying ChildKeys"))
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying ChildKeys"))
             }
-        };
+        }
     }
 }
 #[derive(Clone)]
@@ -75,9 +75,9 @@ pub fn to_hardened_account(
 
     let hardened_path = format!(
         "m/{}h/{}h/{}h",
-        purpose.to_string(),
+        purpose,
         coin,
-        account.to_string()
+        account
     );
     let path = match DerivationPath::from_str(&hardened_path) {
         Ok(hdpath) => hdpath,
@@ -109,7 +109,7 @@ pub fn to_path_str(master_xprv: &str, derivation_path: &str) -> Result<ChildKeys
         Err(_) => return Err(S5Error::new(ErrorKind::Key, "Invalid Master Key.")),
     };
     let fingerprint = root.fingerprint(&secp);
-    let path = match DerivationPath::from_str(&derivation_path) {
+    let path = match DerivationPath::from_str(derivation_path) {
         Ok(path) => path,
         Err(_) => return Err(S5Error::new(ErrorKind::Key, "Invalid Derivation Path.")),
     };

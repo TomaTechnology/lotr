@@ -9,7 +9,7 @@ use sha2::{Sha256, Digest};
 
 pub fn format_key(key: &str)->String{
     let mut hasher = Sha256::new();
-    hasher.update(key.clone().as_bytes());
+    hasher.update(key.as_bytes());
     let result = hasher.finalize();
     hex::encode(result)
 }
@@ -20,7 +20,7 @@ pub fn cc20p1305_encrypt(plaintext:&str, key: &str)->Result<String,S5Error>{
     let encryption_key = Key::from_slice(shortened);
     let aead = XChaCha20Poly1305::new(encryption_key);
     let mut rng = thread_rng();
-    let random = rng.gen::<u64>().clone();
+    let random = rng.gen::<u64>();
     let mut random_string = random.to_string();
     random_string.pop();
     random_string.pop();
@@ -28,21 +28,21 @@ pub fn cc20p1305_encrypt(plaintext:&str, key: &str)->Result<String,S5Error>{
     let nonce = &base64::encode(random_bytes); 
     let nonce = XNonce::from_slice(nonce.as_bytes()); 
     let ciphertext = aead.encrypt(nonce, plaintext.as_bytes()).expect("encryption failure!");
-    Ok(format!("{}:{}",base64::encode(nonce),base64::encode(&ciphertext).to_string()))
+    Ok(format!("{}:{}",base64::encode(nonce),base64::encode(&ciphertext)))
 }
 pub fn cc20p1305_decrypt(ciphertext:&str, key: &str)->Result<String,S5Error>{
     let formatted = format_key(key);
     let shortened = formatted.as_str()[..32].as_bytes();
     let encryption_key = Key::from_slice(shortened);
     let aead = XChaCha20Poly1305::new(encryption_key);
-    let iter:Vec<&str> = ciphertext.split(":").collect();
+    let iter:Vec<&str> = ciphertext.split(':').collect();
     let nonce_slice = &base64::decode(&iter[0].as_bytes()).unwrap();
     let nonce = XNonce::from_slice(nonce_slice); // 24-bytes; unique
     let ciphertext_bytes: &[u8] = &base64::decode(&iter[1].as_bytes()).unwrap();
     let plaintext = aead.decrypt(nonce, ciphertext_bytes).expect("decryption failure!");
     match str::from_utf8(&plaintext){
         Ok(message)=>Ok(message.to_string()),
-        Err(_)=> return Err(S5Error::new(ErrorKind::Input, "Bad Text"))
+        Err(_)=> Err(S5Error::new(ErrorKind::Input, "Bad Text"))
     }
 }
 

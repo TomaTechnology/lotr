@@ -12,6 +12,7 @@ pub struct KeyStore{
     social: String,
     money: String,
 }
+
 impl KeyStore{
     pub fn new(username: &str, social_key: ChildKeys, money_key: ChildKeys)->KeyStore{
         KeyStore {
@@ -37,7 +38,7 @@ impl KeyStore{
 }
 
 pub fn create(db: Db, key_store: KeyStore)->Result<bool, S5Error>{
-    let main_tree = sleddb::get_tree(db.clone(), &key_store.username).unwrap();
+    let main_tree = sleddb::get_tree(db, &key_store.username).unwrap();
     // TODO!!! check if tree contains data, do not insert
 
     let bytes = bincode::serialize(&key_store).unwrap();
@@ -47,22 +48,21 @@ pub fn create(db: Db, key_store: KeyStore)->Result<bool, S5Error>{
 pub fn read(db: Db, username: &str, )->Result<KeyStore, S5Error>{
     match sleddb::get_tree(db.clone(), username){
         Ok(tree)=>{
-             if tree.contains_key(b"master_key").unwrap() {
-                 match tree.get("master_key").unwrap() {
-                     Some(bytes) => {
-                         let key_store: KeyStore = bincode::deserialize(&bytes).unwrap();
-                         Ok(key_store)
-                     },
-                     None => return Err(S5Error::new(ErrorKind::Internal, "No KeyStore found in mk tree"))
-                   
-                 }
-             } else {
-                 db.drop_tree(&tree.name()).unwrap();
-                 return Err(S5Error::new(ErrorKind::Input, "No master_key index found in mk tree"));
-             }
+            if tree.contains_key(b"master_key").unwrap() {
+            match tree.get("master_key").unwrap() {
+                Some(bytes) => {
+                    let key_store: KeyStore = bincode::deserialize(&bytes).unwrap();
+                    Ok(key_store)
+                },
+                None => Err(S5Error::new(ErrorKind::Internal, "No KeyStore found in mk tree"))
+            }
+            } else {
+            db.drop_tree(&tree.name()).unwrap();
+                Err(S5Error::new(ErrorKind::Input, "No master_key index found in mk tree"))
+            }
         }
         Err(_)=>{
-            return Err(S5Error::new(ErrorKind::Internal, "Could not get mk tree"));
+            Err(S5Error::new(ErrorKind::Internal, "Could not get mk tree"))
         }
     }
 }

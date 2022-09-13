@@ -99,9 +99,9 @@ impl WalletConfig {
       Ok(WalletConfig {
         deposit_desc: deposit_desc.to_string(),
         change_desc: change_desc.to_string(),
-        network:network,
+        network,
         client: Some(client),
-        db_path: db_path
+        db_path
       })
     } else if node_address.contains("?auth=") {
       let parts: Vec<&str> = node_address.split("?auth=").collect();
@@ -139,7 +139,7 @@ impl WalletConfig {
         change_desc: change_desc.to_string(),
         network,
         client: Some(client),
-        db_path: db_path
+        db_path
       })
     } else {
       Err(S5Error::new(ErrorKind::Internal, "Core RPC requires an onion address."))
@@ -190,7 +190,7 @@ impl WalletConfig {
       change_desc: change_desc.to_string(),
       network,
       client: None,
-      db_path: db_path
+      db_path
     })
   }
 }

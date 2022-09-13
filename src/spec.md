@@ -2,31 +2,31 @@
 
 ## mk
 
-levrem mk generate <username>
-levrem mk import <username> <mnemonic> <passphrase?>
-levrem mk status <username>
-levrem mk drop
+lotr mk generate <username>
+lotr mk import <username>
+lotr mk status
+lotr mk delete <username>
 
 ## chat
 
-levrem chat admin_invite <server> <socks5> <secret>
-levrem chat register <server> <socks5> <invite_code>
-levrem chat sync <server> <socks5?>
-levrem chat post <message>
+lotr chat admin_invite <server> <socks5> <secret>
+lotr chat register <server> <socks5> <invite_code>
+lotr chat sync <server> <socks5?>
+lotr chat post <message>
 
 ## contract
 
-levrem contract init <label> <policy>
-levrem contract sync <label> 
-levrem contract info <label>
-levrem contract receive <label>
-levrem contract send <label> <output>
-levrem contract backup <label>
-levrem contract recover <label> <descriptor>
+lotr contract init <label> <policy>
+lotr contract sync <label> 
+lotr contract info <label>
+lotr contract receive <label>
+lotr contract send <label> <output>
+lotr contract backup <label>
+lotr contract recover <label> <descriptor>
 
 ## tor
 *low priority*
 
-levrem tor start
-levrem tor status
-levrem tor stop
+lotr tor start
+lotr tor status
+lotr tor stop

@@ -15,7 +15,6 @@ use crate::e::{ErrorKind};
 mod lib;
 use crate::lib::sleddb;
 
-
 mod config;
 
 fn main() {
@@ -112,7 +111,7 @@ fn main() {
                             }
                         };
 
-                        let key_store = mk::storage::KeyStore::new(username,child_social.clone(),child_money.clone());
+                        let key_store = mk::storage::KeyStore::new(username,child_social,child_money);
                         let encrypted = key_store.encrypt(&password);
                         let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey).unwrap();
                         let dup_check = mk::storage::read(db.clone(), username);
@@ -134,8 +133,8 @@ fn main() {
                                     panic!("500");                                }
                             }
                         }
-                        let status = mk::storage::create(db.clone(),encrypted.clone()).unwrap();
-                        if status == true {
+                        let status = mk::storage::create(db,encrypted).unwrap();
+                        if status {
                             println!("===============================================");
                             println!("Master Key Details (Create physical backups!):\n");
                             println!("FingerPrint:{:#?}\nMnemonic:{:#?}", seed.fingerprint, seed.mnemonic);
@@ -187,7 +186,7 @@ fn main() {
                             }
                         };
 
-                        let key_store = mk::storage::KeyStore::new(username,child_social.clone(),child_money.clone());
+                        let key_store = mk::storage::KeyStore::new(username,child_social,child_money);
                         let encrypted = key_store.encrypt(&password);
                         let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey).unwrap();
                         let dup_check = mk::storage::read(db.clone(), username);
@@ -209,8 +208,8 @@ fn main() {
                                     panic!("500");                                }
                             }
                         }
-                        let status = mk::storage::create(db.clone(),encrypted.clone()).unwrap();
-                        if status == true {
+                        let status = mk::storage::create(db,encrypted).unwrap();
+                        if status {
                             println!("===============================================");
                             println!("Master Key Details:\n");
                             println!("FingerPrint:{:#?}", seed.fingerprint);
@@ -236,7 +235,7 @@ fn main() {
                         let dup_check = mk::storage::read(db.clone(), username);
                         match dup_check{
                             Ok(_)=>{
-                                ()
+                                
                             }
                             Err(e)=>{
                                 println!("===============================================");
@@ -246,8 +245,8 @@ fn main() {
                             }
                         }
 
-                        let status = mk::storage::delete(db.clone(),username);
-                        if status == true{
+                        let status = mk::storage::delete(db,username);
+                        if status {
                             println!("===============================================");
                             println!("Successfully deleted master key record: {:#?}", username);
                             println!("===============================================");
