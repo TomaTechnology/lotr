@@ -1,11 +1,11 @@
 # spec
 
-## mk
+## key
 
-lotr mk generate <username>
-lotr mk import <username>
-lotr mk status
-lotr mk delete <username>
+lotr key generate <username>
+lotr key import <username>
+lotr key status
+lotr key delete <username>
 
 ## chat
 

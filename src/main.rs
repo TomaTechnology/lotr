@@ -5,9 +5,7 @@ use rpassword::read_password;
 use std::io::Write;
 use bitcoin::network::constants::Network;
 
-mod mk;
-use crate::mk::seed;
-use crate::mk::child;
+mod config;
 
 mod e;
 use crate::e::{ErrorKind};
@@ -15,7 +13,14 @@ use crate::e::{ErrorKind};
 mod lib;
 use crate::lib::sleddb;
 
-mod config;
+mod key;
+use crate::key::seed;
+use crate::key::child;
+
+mod cypherpost;
+use crate::cypherpost::ops;
+use crate::cypherpost::identity;
+
 
 fn main() {
     let matches = App::new("\x1b[0;92mlotr\x1b[0m")
@@ -24,7 +29,7 @@ fn main() {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("ishi@toma.tech")
         .subcommand(
-            Command::new("mk")
+            Command::new("key")
                 .about("Master Key Ops")
                 .display_order(3)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -76,7 +81,7 @@ fn main() {
     
     match matches.subcommand() {
 
-        Some(("mk", service_matches)) => {
+        Some(("key", service_matches)) => {
             match service_matches.subcommand() {
                     Some(("generate", sub_matches)) => {
                         let matches =  &sub_matches.clone();
@@ -111,10 +116,10 @@ fn main() {
                             }
                         };
 
-                        let key_store = mk::storage::KeyStore::new(username,child_social,child_money);
+                        let key_store = key::storage::KeyStore::new(username,child_social,child_money);
                         let encrypted = key_store.encrypt(&password);
                         let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey).unwrap();
-                        let dup_check = mk::storage::read(db.clone(), username);
+                        let dup_check = key::storage::read(db.clone(), username);
                         match dup_check{
                             Ok(_)=>{
                                 println!("===============================================");
@@ -133,7 +138,7 @@ fn main() {
                                     panic!("500");                                }
                             }
                         }
-                        let status = mk::storage::create(db,encrypted).unwrap();
+                        let status = key::storage::create(db,encrypted).unwrap();
                         if status {
                             println!("===============================================");
                             println!("Master Key Details (Create physical backups!):\n");
@@ -186,10 +191,10 @@ fn main() {
                             }
                         };
 
-                        let key_store = mk::storage::KeyStore::new(username,child_social,child_money);
+                        let key_store = key::storage::KeyStore::new(username,child_social,child_money);
                         let encrypted = key_store.encrypt(&password);
                         let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey).unwrap();
-                        let dup_check = mk::storage::read(db.clone(), username);
+                        let dup_check = key::storage::read(db.clone(), username);
                         match dup_check{
                             Ok(_)=>{
                                 println!("===============================================");
@@ -208,7 +213,7 @@ fn main() {
                                     panic!("500");                                }
                             }
                         }
-                        let status = mk::storage::create(db,encrypted).unwrap();
+                        let status = key::storage::create(db,encrypted).unwrap();
                         if status {
                             println!("===============================================");
                             println!("Master Key Details:\n");
@@ -232,7 +237,7 @@ fn main() {
                         let matches = &sub_matches.clone();
                         let username = matches.value_of("username").unwrap();
                         let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey).unwrap();
-                        let dup_check = mk::storage::read(db.clone(), username);
+                        let dup_check = key::storage::read(db.clone(), username);
                         match dup_check{
                             Ok(_)=>{
                                 
@@ -245,7 +250,7 @@ fn main() {
                             }
                         }
 
-                        let status = mk::storage::delete(db,username);
+                        let status = key::storage::delete(db,username);
                         if status {
                             println!("===============================================");
                             println!("Successfully deleted master key record: {:#?}", username);
