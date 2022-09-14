@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::str::{FromStr};
-use secp256k1::hashes::sha256;
-use secp256k1::schnorr::Signature;
-use secp256k1::Secp256k1;
-use secp256k1::{ecdh::SharedSecret, KeyPair, Message, PublicKey, SecretKey, XOnlyPublicKey};
-use bitcoin::util::bip32::ExtendedPrivKey;
+use bdk::bitcoin::hashes::sha256;
+use bdk::bitcoin::secp256k1::schnorr::Signature;
+use bdk::bitcoin::secp256k1::Secp256k1;
+use bitcoin::secp256k1::{ecdh::SharedSecret, KeyPair, Message, PublicKey, SecretKey, XOnlyPublicKey};
+use bdk::bitcoin::util::bip32::ExtendedPrivKey;
 
 use crate::e::{ErrorKind, S5Error};
 
@@ -16,11 +16,10 @@ pub struct XOnlyPair {
 }
 impl XOnlyPair {
   pub fn from_keypair(keypair: KeyPair) -> XOnlyPair {
-    println!("XONLY_PUB: {:#?}",XOnlyPublicKey::from_keypair(&keypair).to_string());
-
+    let keypair = enforce_even_parity(keypair);
     return XOnlyPair {
       seckey: hex::encode(keypair.secret_bytes()).to_string(),
-      pubkey: XOnlyPublicKey::from_keypair(&keypair).to_string(),
+      pubkey: keypair.public_key().to_string(),
     };
   }
 }
@@ -50,26 +49,28 @@ pub fn keypair_from_seckey_str(seckey: &str) -> Result<KeyPair, S5Error> {
 
 /// Generate a ecdsa shared secret
 pub fn compute_shared_secret_str(
-  secret_key: &str, 
-  public_key: &str
+  seckey: &str, 
+  pubkey: &str
 ) -> Result<String, S5Error> {
-  let seckey = match SecretKey::from_str(secret_key) {
+  let secret_key = match SecretKey::from_str(seckey) {
     Ok(result) => result,
     Err(_) =>  return Err(S5Error::new(ErrorKind::Key, "BAD SECKEY STRING")),
   };
-  let public_key = if public_key.clone().len() == 64 {
-    "02".to_string() + public_key.clone()
-  } else if public_key.clone().len() == 66 {
-    public_key.to_string()
+
+  let public_key = if pubkey.clone().len() == 64 {
+    "02".to_string() + pubkey.clone()
+  } else if pubkey.clone().len() == 66 {
+    pubkey.to_string()
   } else {
      return Err(S5Error::new(ErrorKind::Key, "BAD PUBKEY STRING"));
   };
+
   let pubkey = match PublicKey::from_str(&public_key) {
     Ok(result) => result,
     Err(_) =>  return Err(S5Error::new(ErrorKind::Key, "BAD PUBKEY STRING")),
   };
 
-  let shared_secret = SharedSecret::new(&pubkey, &seckey);
+  let shared_secret = SharedSecret::new(&pubkey, &secret_key);
   let shared_secret_hex = hex::encode(&(shared_secret.secret_bytes()));
   Ok(shared_secret_hex)
 }
@@ -110,12 +111,26 @@ pub fn schnorr_verify(signature: &str,message: &str, pubkey: &str) -> Result<boo
   return Ok(result);
 }
 
+pub fn enforce_even_parity(key_pair: KeyPair)->KeyPair{
+  let secp = Secp256k1::new();
+  let public_key = PublicKey::from_keypair(&key_pair);
+  let parity = public_key.to_string().remove(1);
+  if parity == '3' {
+    let mut seckey = SecretKey::from_keypair(&key_pair);
+    seckey.negate_assign();
+    let key_pair = KeyPair::from_secret_key(&secp, seckey); 
+    key_pair
+  }
+  else{
+    key_pair
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::key::ec;
   use crate::key::seed;
-  use bitcoin::network::constants::Network;
+  use bdk::bitcoin::network::constants::Network;
 
   #[test]
   fn test_from_xprv_str() {
@@ -128,7 +143,7 @@ mod tests {
   fn test_schnorr_sigs() {
     let message = "stackmate 1646056571433";
     let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
-    let key_pair = ec::keypair_from_xprv_str(&seed.xprv).unwrap();
+    let key_pair = keypair_from_xprv_str(&seed.xprv).unwrap();
 
     let signature = schnorr_sign(message, key_pair).unwrap();
     let signature = signature_from_str(&signature.to_string()).unwrap();
@@ -139,22 +154,21 @@ mod tests {
 
   #[test]
   fn test_shared_secret() {
-    let alice_pair = XOnlyPair {
-      seckey: "d5f984d2ab332345dbf7ddff9f47852125721b2025329e6981c4130671e237d0".to_string(),
-      pubkey: "3946267e8f3eeeea651b0ea865b52d1f9d1c12e851b0f98a3303c15a26cf235d".to_string(),
-    };
-    let bob_pair = XOnlyPair {
-      seckey: "3c842fc0e15f2f1395922d432aafa60c35e09ad97c363a37b637f03e7adcb1a7".to_string(),
-      pubkey: "dfbbf1979269802015da7dba4143ff5935ea502ef3a7276cc650be0d84a9c882".to_string(),
-    };
-    // let expected_shared_secret = "48c413dc9459a3c154221a524e8fad34267c47fc7b47443246fa8919b19fff93";
+    let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
+    let key_pair = enforce_even_parity(keypair_from_xprv_str(&seed.xprv).unwrap());    
+    let alice_pair = XOnlyPair::from_keypair(key_pair.clone());
+
+    let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
+    let key_pair = enforce_even_parity(keypair_from_xprv_str(&seed.xprv).unwrap());
+    let bob_pair = XOnlyPair::from_keypair(key_pair.clone());
+
+    // Alice only has Bob's XOnlyPubkey string
     let alice_shared_secret =
       compute_shared_secret_str(&alice_pair.seckey, &bob_pair.pubkey).unwrap();
+
+    // Bob only has Alice's XOnlyPubkey string
     let bob_shared_secret =
       compute_shared_secret_str(&bob_pair.seckey, &alice_pair.pubkey).unwrap();
-    // let alice_shared_secret = generate_shared_secret(alice_pair.0, bob_pair.1).unwrap();
-    // let bob_shared_secret = generate_shared_secret(bob_pair.0, alice_pair.1).unwrap();
     assert_eq!(alice_shared_secret, bob_shared_secret);
-    // assert_eq!(alice_shared_secret,expected_shared_secret);
   }
 }

@@ -1,7 +1,7 @@
 use crate::key::ec;
 use secp256k1::{KeyPair};
 use crate::e::{S5Error};
-use crate::cypherpost::model::{CypherPostModel,PlainPostModel};
+use crate::cypherpost::model::{CypherPostModel,PlainPostModel,PlainPost};
 use crate::key::child;
 use crate::key::encryption::{key_hash256,cc20p1305_decrypt};
 
@@ -84,7 +84,7 @@ pub fn decrypt_my_posts(my_posts: Vec<CypherPostModel>, social_root: &str)->Resu
             genesis: cypherpost.genesis,
             expiry: cypherpost.expiry,
             owner: cypherpost.owner,
-            plain_json: plain_json_string,
+            plain_post: PlainPost::structify(&plain_json_string).unwrap(),
             edited : cypherpost.edited
         }
     }).collect())
@@ -97,13 +97,13 @@ pub fn decrypt_others_posts(others_posts: Vec<CypherPostModel>, social_root: &st
         let shared_secret = ec::compute_shared_secret_str(&my_xonly_pair.seckey, &cypherpost.owner).unwrap();
         let decryption_key = cc20p1305_decrypt(&cypherpost.decryption_key.unwrap(), &shared_secret).unwrap();
         let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key).unwrap();
-        
+
         PlainPostModel{
             id: cypherpost.id,
             genesis: cypherpost.genesis,
             expiry: cypherpost.expiry,
             owner: cypherpost.owner,
-            plain_json: plain_json_string,
+            plain_post: PlainPost::structify(&plain_json_string).unwrap(),
             edited : cypherpost.edited
         }
     }).collect())

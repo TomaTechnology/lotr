@@ -3,7 +3,7 @@ use crate::e::{ErrorKind, S5Error};
 
 use chacha20poly1305::{XChaCha20Poly1305, Key, XNonce};
 use chacha20poly1305::aead::{Aead, NewAead};
-use secp256k1::rand::{thread_rng,Rng};
+use bdk::bitcoin::secp256k1::rand::{thread_rng,Rng};
 // use hex::encode;
 use sha2::{Sha256, Digest};
 

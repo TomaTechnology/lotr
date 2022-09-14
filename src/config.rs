@@ -127,7 +127,7 @@ impl WalletConfig {
         auth,
         network,
         wallet_name,
-        skip_blocks: None,
+        sync_params: None,
       };
       let client = match create_blockchain_client(AnyBlockchainConfig::Rpc(config)) {
         Ok(client) => client,
@@ -258,7 +258,7 @@ pub fn _check_client(network: Network, node_address: &str) -> Result<bool, S5Err
       auth,
       network,
       wallet_name: "ping".to_string(),
-      skip_blocks: None,
+      sync_params: None
     };
 
     match create_blockchain_client(AnyBlockchainConfig::Rpc(config)) {
@@ -287,7 +287,7 @@ mod tests {
     match config.client.unwrap() {
       AnyBlockchain::Electrum(client) => {
         let fee = client.estimate_fee(8);
-        assert_eq!((fee.unwrap().as_sat_vb() > 0.0), true);
+        assert_eq!((fee.unwrap().as_sat_per_vb() > 0.0), true);
       }
       _ => println!("Should not reach."),
     };
@@ -308,7 +308,7 @@ mod tests {
     match config.client.unwrap() {
       AnyBlockchain::Rpc(client) => {
         let fee = client.estimate_fee(8);
-        assert_eq!((fee.unwrap().as_sat_vb() > 0.0), true);
+        assert_eq!((fee.unwrap().as_sat_per_vb() > 0.0), true);
       }
       _ => println!("Should not reach."),
     };

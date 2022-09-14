@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use bip39::{Language, Mnemonic};
-use bitcoin::network::constants::Network;
-use bitcoin::secp256k1::rand::rngs::OsRng;
-use bitcoin::secp256k1::Secp256k1;
-use bitcoin::util::bip32::ExtendedPrivKey;
+use bdk::bitcoin::network::constants::Network;
+use bdk::bitcoin::secp256k1::rand::rngs::OsRng;
+use bdk::bitcoin::secp256k1::Secp256k1;
+use bdk::bitcoin::util::bip32::ExtendedPrivKey;
 
 use crate::e::{ErrorKind, S5Error};
 

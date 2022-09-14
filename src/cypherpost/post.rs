@@ -192,35 +192,10 @@ mod tests {
     use crate::key::ec;
     use crate::key::seed;
     use crate::key::child;
+    use crate::cypherpost::model;
     use crate::key::encryption::{cc20p1305_encrypt, key_hash256};
     use crate::cypherpost::ops::{decrypt_my_posts,decrypt_others_posts};
-
-    use bitcoin::network::constants::Network;
-
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct TestStruct{
-        kind: String,
-        name: String,
-        value: String,
-    }
-    impl TestStruct{
-        pub fn stringify(&self) -> Result<String, S5Error> {
-            match serde_json::to_string(self) {
-                Ok(result) => Ok(result),
-                Err(_) => {
-                    Err(S5Error::new(ErrorKind::Internal, "Error stringifying TestStruct"))
-                }
-            }
-        }
-        pub fn structify(stringified: &str) -> Result<TestStruct, S5Error> {
-            match serde_json::from_str(stringified) {
-                Ok(result) => Ok(result),
-                Err(_) => {
-                    Err(S5Error::new(ErrorKind::Internal, "Error stringifying TestStruct"))
-                }
-            }
-        }
-    }
+    use bdk::bitcoin::network::constants::Network;
     
     #[test]
     fn test_post_flow(){
@@ -280,9 +255,8 @@ mod tests {
         println!("{:#?}", response);
 
         // Create a struct to share
-        let xpub_to_share = TestStruct{
-            kind: "XPUB".to_string(),
-            name: user1,
+        let xpub_to_share = model::PlainPost{
+            kind: model::PostKind::Pubkey,
             value: "xpubsomesomerands".to_string(),
         };
         // Json stringify it
@@ -317,17 +291,22 @@ mod tests {
         println!("{:#?}",response.posts);
         let decrypted = decrypt_others_posts(response.posts, &social_child2.xprv).unwrap();
         assert_eq!(decrypted.len(),1);
-        assert_eq!(decrypted[0].plain_json,stringy_xpub);
-        // Decrypt encryption key
-        // Decrypt cypherjson
-        // Structify Json
+        assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
+
+        // Get posts & keys as user3
+        let response = others_posts(url,key_pair3).unwrap();
+        assert_eq!(response.posts.len(),1);
+        println!("{:#?}",response.posts);
+        let decrypted = decrypt_others_posts(response.posts, &social_child3.xprv).unwrap();
+        assert_eq!(decrypted.len(),1);
+        assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
 
         // Get posts as self
-        // let response = my_posts(url,key_pair1).unwrap();
-        // assert_eq!(response.posts.len(),1);
-        // let decrypted = decrypt_my_posts(response.posts, &social_child1.xprv).unwrap();
-        // assert_eq!(decrypted.len(),1);
-        // assert_eq!(decrypted[0].plain_json,stringy_xpub);
+        let response = my_posts(url,key_pair1).unwrap();
+        assert_eq!(response.posts.len(),1);
+        let decrypted = decrypt_my_posts(response.posts, &social_child1.xprv).unwrap();
+        assert_eq!(decrypted.len(),1);
+        assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
         // Delete post
         let response = remove(url,key_pair1, &post_id).unwrap();
         assert!(response.status);

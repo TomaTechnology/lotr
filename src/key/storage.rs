@@ -80,7 +80,7 @@ mod tests {
   use super::*;
   use crate::key::seed;
   use crate::key::child;
-  use bitcoin::network::constants::Network;
+  use bdk::bitcoin::network::constants::Network;
 
   #[test]
   fn test_keystore() {
