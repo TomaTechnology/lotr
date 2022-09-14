@@ -13,6 +13,40 @@ pub struct CypherPostModel{
     pub decryption_key: Option<String>
 }
 
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum PostKind{
+    Message,
+    Pubkey,
+    AddressIndex,
+    Psbt
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PlainPost{
+    pub kind: PostKind,
+    pub label: Option<String>,
+    pub value: String,
+}
+impl PlainPost{
+    pub fn stringify(&self) -> Result<String, S5Error> {
+        match serde_json::to_string(self) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
+            }
+        }
+    }
+    pub fn structify(stringified: &str) -> Result<PlainPost, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PlainPostModel{
     pub id: String,
@@ -39,38 +73,14 @@ impl PlainPostModel{
             }
         }
     }
+
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PostKind{
-    Message,
-    Pubkey,
-    Psbt
+pub fn get_posts_by_kind(mut posts: Vec<PlainPostModel>, kind: PostKind)->Vec<PlainPostModel>{
+    posts.retain(|x| x.plain_post.kind == kind);
+    posts
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PlainPost{
-    pub kind: PostKind,
-    pub value: String,
-}
-impl PlainPost{
-    pub fn stringify(&self) -> Result<String, S5Error> {
-        match serde_json::to_string(self) {
-            Ok(result) => Ok(result),
-            Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
-            }
-        }
-    }
-    pub fn structify(stringified: &str) -> Result<PlainPost, S5Error> {
-        match serde_json::from_str(stringified) {
-            Ok(result) => Ok(result),
-            Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
-            }
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LotrContract{
@@ -88,6 +98,7 @@ mod tests {
     fn test_cypherpost_models(){
         let example  = PlainPost{
             kind: PostKind::Message,
+            label: None,
             value: "Yo, I have a secret only for you".to_string()
         };
 

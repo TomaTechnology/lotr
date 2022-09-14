@@ -2,27 +2,33 @@
 
 ## key
 
-lotr key generate <username>
-lotr key import <username>
+lotr key generate
+lotr key import
 lotr key status
-lotr key delete <username>
+lotr key delete
 
 ## chat
 
-lotr chat admin_invite <server> <socks5> <secret>
-lotr chat register <server> <socks5> <invite_code>
+lotr chat adminvite <server> <socks5> <secret>
+lotr chat register <server> <username> <invite_code>
+lotr chat unregister <server> <username>
+lotr chat contacts <server> <socks5>
 lotr chat sync <server> <socks5?>
 lotr chat post <message>
 
 ## contract
 
-lotr contract init <label> <policy>
-lotr contract sync <label> 
-lotr contract info <label>
+lotr contract init <name> <policy>
+lotr contract sync 
+// share pubkey and check if others have shared
+lotr contract info
 lotr contract receive <label>
 lotr contract send <label> <output>
+lotr contract sign <label>
+lotr contract broadcast <label>
+
 lotr contract backup <label>
-lotr contract recover <label> <descriptor>
+lotr contract recover <descriptor>
 
 ## tor
 *low priority*

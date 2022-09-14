@@ -257,6 +257,7 @@ mod tests {
         // Create a struct to share
         let xpub_to_share = model::PlainPost{
             kind: model::PostKind::Pubkey,
+            label: None,
             value: "xpubsomesomerands".to_string(),
         };
         // Json stringify it

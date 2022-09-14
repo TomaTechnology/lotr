@@ -640,6 +640,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sled",
+ "text_io",
  "ureq",
 ]
 
@@ -1174,6 +1175,12 @@ checksum = "75071a31761781a74d091387713756966a74ce60eea99a093a5ab3f2cccac3fe"
 dependencies = [
  "libc 0.1.12",
 ]
+
+[[package]]
+name = "text_io"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5f0c8eb2ad70c12a6a69508f499b3051c924f4b1cfeae85bfad96e6bc5bba46"
 
 [[package]]
 name = "textwrap"

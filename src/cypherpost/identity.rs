@@ -19,10 +19,10 @@ impl AdminInviteResponse{
         }
     }
 }
-pub fn admin_invite(url: &str, invite_code: &str)->Result<AdminInviteResponse, S5Error>{
+pub fn admin_invite(url: &str, admin_secret: &str)->Result<AdminInviteResponse, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::AdminInvite.to_string();
     let response: String = ureq::get(&full_url)
-        .set(&HttpHeader::AdminInvite.to_string(), invite_code)
+        .set(&HttpHeader::AdminInvite.to_string(), admin_secret)
         .call().unwrap()
         .into_string().unwrap();
 
