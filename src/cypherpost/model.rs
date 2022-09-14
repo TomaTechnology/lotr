@@ -22,6 +22,24 @@ pub struct PlainPostModel{
     pub plain_post: PlainPost,
     pub edited : bool
 }
+impl PlainPostModel{
+    pub fn stringify(&self) -> Result<String, S5Error> {
+        match serde_json::to_string(self) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPostModel"))
+            }
+        }
+    }
+    pub fn structify(stringified: &str) -> Result<PlainPostModel, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPostModel"))
+            }
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PostKind{
@@ -62,4 +80,19 @@ pub struct LotrContract{
 }
 
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn test_cypherpost_models(){
+        let example  = PlainPost{
+            kind: PostKind::Message,
+            value: "Yo, I have a secret only for you".to_string()
+        };
+
+        let stringified = example.stringify().unwrap();
+        println!("{:#?}",stringified);
+    }
+    
+}

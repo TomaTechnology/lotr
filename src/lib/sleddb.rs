@@ -16,7 +16,7 @@ pub enum LotrDatabase{
 impl LotrDatabase{
     pub fn to_string(&self)->String{
         match self{
-            LotrDatabase::MasterKey=>"mk".to_string(),
+            LotrDatabase::MasterKey=>"keys".to_string(),
             LotrDatabase::Posts=>"posts".to_string(),
             LotrDatabase::Contract=>"contract".to_string(),
             LotrDatabase::Void=>"void".to_string()
@@ -24,7 +24,7 @@ impl LotrDatabase{
     }
     pub fn from_str(db: &str)->LotrDatabase{
         match db {
-            "mk"=>LotrDatabase::MasterKey,
+            "keys"=>LotrDatabase::MasterKey,
             "posts"=>LotrDatabase::Posts,
             "contract"=>LotrDatabase::Contract,
             &_=>LotrDatabase::Void
