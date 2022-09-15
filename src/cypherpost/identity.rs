@@ -2,6 +2,7 @@ use crate::e::{ErrorKind, S5Error};
 use secp256k1::{KeyPair};
 use ureq;
 use crate::cypherpost::ops::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
+use crate::cypherpost::model::{CypherpostIdentity};
 use serde::{Deserialize, Serialize};
 use secp256k1::rand::{thread_rng,Rng};
 
@@ -74,12 +75,6 @@ pub fn register(url: &str,key_pair: KeyPair, invite_code: &str, username: &str)-
         .into_string().unwrap();
 
     ClientIdentityStatusResponse::structify(&response)
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CypherpostIdentity{
-    pub username: String,
-    pub pubkey: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

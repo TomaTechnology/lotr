@@ -1,24 +1,78 @@
 use crate::lib::sleddb;
-use sled::{Db};
-use std::str;
 use crate::e::{ErrorKind, S5Error};
 use crate::cypherpost::model::{PlainPostModel};
-use crate::cypherpost::identity::{CypherpostIdentity};
+use crate::cypherpost::model::{CypherpostIdentity};
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PreferenceStore{
+    pub server: String,
+    pub last_ds: String
+}
+
+impl PreferenceStore {
+    pub fn new(server: &str, last_ds: &str)->Self{
+        PreferenceStore{
+            server: server.to_string(),
+            last_ds: last_ds.to_string()
+        }
+    }
+}
+
+pub fn create_prefs(prefs: PreferenceStore)->Result<bool, S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Preferences).unwrap();
+    let main_tree = sleddb::get_tree(db, "prefs").unwrap();
+    // TODO!!! check if tree contains data, do not insert
+    let bytes = bincode::serialize(&prefs).unwrap();
+    main_tree.insert("0", bytes).unwrap();
+    Ok(true)
+}
+pub fn read_prefs()->Result<PreferenceStore, S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Preferences).unwrap();
+    match sleddb::get_tree(db.clone(), "prefs"){
+        Ok(tree)=>{
+            if tree.contains_key(b"0").unwrap() {
+            match tree.get("0").unwrap() {
+                Some(bytes) => {
+                    let key_store: PreferenceStore = bincode::deserialize(&bytes).unwrap();
+                    Ok(key_store)
+                },
+                None => Err(S5Error::new(ErrorKind::Internal, "No PreferenceStore found in preferences tree"))
+            }
+            } else {
+            db.drop_tree(&tree.name()).unwrap();
+                Err(S5Error::new(ErrorKind::Input, "No preferences index found in preferences tree"))
+            }
+        }
+        Err(_)=>{
+            Err(S5Error::new(ErrorKind::Internal, "Could not get preferences tree"))
+        }
+    }
+}
+pub fn delete_prefs()->bool{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Preferences).unwrap();
+    let tree = sleddb::get_tree(db.clone(), "prefs").unwrap();
+    tree.clear().unwrap();
+    tree.flush().unwrap();
+    db.drop_tree(&tree.name()).unwrap();
+    true
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PostStore{
     pub posts: Vec<PlainPostModel>
 }
 
-pub fn create_posts(db: Db, post_models: Vec<PlainPostModel>)->Result<bool, S5Error>{
+pub fn create_posts(post_models: Vec<PlainPostModel>)->Result<bool, S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Posts).unwrap();
     let main_tree = sleddb::get_tree(db, "posts").unwrap();
     let bytes = bincode::serialize(&post_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
-pub fn read_posts(db: Db)->Result<PostStore,S5Error>{
+pub fn read_posts()->Result<PostStore,S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Posts).unwrap();
     match sleddb::get_tree(db.clone(), "posts"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -42,19 +96,28 @@ pub fn read_posts(db: Db)->Result<PostStore,S5Error>{
     }
 
 }
-
+pub fn delete_posts()->bool{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Posts).unwrap();
+    let tree = sleddb::get_tree(db.clone(), "posts").unwrap();
+    tree.clear().unwrap();
+    tree.flush().unwrap();
+    db.drop_tree(&tree.name()).unwrap();
+    true
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContactStore{
     pub contacts: Vec<CypherpostIdentity>
 }
 
-pub fn create_contacts(db: Db, contact_models: Vec<CypherpostIdentity>)->Result<bool, S5Error>{
+pub fn create_contacts(contact_models: Vec<CypherpostIdentity>)->Result<bool, S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Contacts).unwrap();
     let main_tree = sleddb::get_tree(db, "contacts").unwrap();
     let bytes = bincode::serialize(&contact_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
-pub fn read_all_contacts(db: Db)->Result<ContactStore,S5Error>{
+pub fn read_all_contacts()->Result<ContactStore,S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Contacts).unwrap();
     match sleddb::get_tree(db.clone(), "contacts"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -78,7 +141,14 @@ pub fn read_all_contacts(db: Db)->Result<ContactStore,S5Error>{
     }
 
 }
-
+pub fn delete_contacts()->bool{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Contacts).unwrap();
+    let tree = sleddb::get_tree(db.clone(), "contacts").unwrap();
+    tree.clear().unwrap();
+    tree.flush().unwrap();
+    db.drop_tree(&tree.name()).unwrap();
+    true
+}
 
 #[cfg(test)]
 mod tests {
@@ -102,12 +172,14 @@ mod tests {
         plain_post: example_post,
     };
 
-    let db = sleddb::get_root(sleddb::LotrDatabase::Posts).unwrap();
-    let status = create_posts(db.clone(), [example_model.clone()].to_vec()).unwrap();
+    let status = create_posts([example_model.clone()].to_vec()).unwrap();
     assert!(status);
 
-    let models = read_posts(db.clone()).unwrap();
+    let models = read_posts().unwrap();
     assert_eq!(models.posts.len(), 1);
+
+    let status = delete_posts();
+    assert!(status);
 
   }
   #[test]
@@ -116,13 +188,21 @@ mod tests {
         username: "ishi".to_string(),
         pubkey: "86a4b6e8b4c544111a6736d4f4195027d23495d947f87aa448c088da477c1b5f".to_string()
     };
-
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contacts).unwrap();
-    let status = create_contacts(db.clone(), [contact.clone()].to_vec()).unwrap();
+    let status = create_contacts([contact.clone()].to_vec()).unwrap();
     assert!(status);
-
-    let read_contact_result = read_all_contacts(db.clone()).unwrap();
+    let read_contact_result = read_all_contacts().unwrap();
     assert_eq!(read_contact_result.contacts[0].pubkey,contact.pubkey);
+    let status = delete_contacts();
+    assert!(status);
+  }
 
+  fn test_preference_store(){
+    let prefs = PreferenceStore::new("https://localhost:3021","m/1h/0h");
+    let status = create_prefs(prefs.clone()).unwrap();
+    assert!(status);
+    let read_prefs_result = read_prefs().unwrap();
+    assert_eq!(read_prefs_result.server,prefs.server);
+    let status = delete_prefs();
+    assert!(status);
   }
 }

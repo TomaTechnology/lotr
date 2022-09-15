@@ -2,7 +2,7 @@ use crate::e::{ErrorKind, S5Error};
 use secp256k1::{KeyPair};
 use ureq;
 use crate::cypherpost::ops::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
-use crate::cypherpost::model::{CypherPostModel};
+use crate::cypherpost::model::{CypherPostModel,DecryptionKey};
 use serde::{Deserialize, Serialize};
 use secp256k1::rand::{thread_rng,Rng};
 
@@ -25,7 +25,7 @@ impl CypherPostRequest{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CypherPostIdResponse{
-    id: String
+    pub id: String
 }
 impl CypherPostIdResponse{
     pub fn structify(stringified: &str) -> Result<CypherPostIdResponse, S5Error> {
@@ -58,7 +58,7 @@ pub fn create(url: &str,key_pair: KeyPair, expiry: u64, derivation_scheme: &str,
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PostStatusResponse{
-    status: bool
+    pub status: bool
 }
 impl PostStatusResponse{
     pub fn structify(stringified: &str) -> Result<PostStatusResponse, S5Error> {
@@ -86,20 +86,6 @@ pub fn remove(url: &str,key_pair: KeyPair, id: &str)->Result<PostStatusResponse,
         .into_string().unwrap();
 
     PostStatusResponse::structify(&response)
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DecryptionKey{
-    decryption_key: String,
-    receiver: String
-}
-impl DecryptionKey{
-    pub fn new(decryption_key: &str,receiver: &str)->DecryptionKey{
-        DecryptionKey {
-            decryption_key: decryption_key.to_string(),
-            receiver: receiver.to_string()
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -138,7 +124,7 @@ pub fn keys(url: &str,key_pair: KeyPair, post_id: &str, decryption_keys: Vec<Dec
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CypherPostModelResponse{
-    posts: Vec<CypherPostModel>
+    pub posts: Vec<CypherPostModel>
 }
 impl CypherPostModelResponse{
     pub fn structify(stringified: &str) -> Result<CypherPostModelResponse, S5Error> {

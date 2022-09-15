@@ -2,6 +2,12 @@ use serde::{Deserialize, Serialize};
 use crate::e::{S5Error,ErrorKind};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CypherpostIdentity{
+    pub username: String,
+    pub pubkey: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CypherPostModel{
     pub id: String,
     pub genesis: u64,
@@ -81,6 +87,19 @@ pub fn get_posts_by_kind(mut posts: Vec<PlainPostModel>, kind: PostKind)->Vec<Pl
     posts
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DecryptionKey{
+   pub decryption_key: String,
+   pub receiver: String
+}
+impl DecryptionKey{
+    pub fn new(decryption_key: &str,receiver: &str)->DecryptionKey{
+        DecryptionKey {
+            decryption_key: decryption_key.to_string(),
+            receiver: receiver.to_string()
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LotrContract{
