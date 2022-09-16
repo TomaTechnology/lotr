@@ -134,7 +134,7 @@ mod tests {
     use crate::key::seed;
     use bitcoin::network::constants::Network;
 
-    #[test]
+    #[test] #[ignore]
     fn test_invite_flow(){
         let url = "http://localhost:3021";
         // ADMIN INVITE

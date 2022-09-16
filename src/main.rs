@@ -21,6 +21,8 @@ use crate::key::ec;
 
 mod cypherpost;
 use crate::cypherpost::identity;
+use crate::cypherpost::notification;
+use tungstenite::{Message};
 
 
 fn main() {
@@ -139,6 +141,99 @@ fn main() {
                         .help("Comma separated list of recipients")
                     )
                     .arg_required_else_help(true),
+                )
+
+        )
+        .subcommand(
+            Command::new("contract")
+                .about("Contract Ops")
+                .display_order(2)
+                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommand(
+                    Command::new("init")
+                    .about("Initialize a lotr contract")
+                    .display_order(0) 
+                )
+                .subcommand(
+                    Command::new("info")
+                    .about("Info about contract status and history")
+                    .display_order(1)
+
+                )
+                .subcommand(
+                    Command::new("receive")
+                    .about("Get an address to receive funds")
+                    .display_order(2)
+                    .arg(
+                        Arg::with_name("label")
+                        .takes_value(true)
+                        .short('l')
+                        .long("label")
+                        .help("Name given to the address")
+                    )
+                    .arg_required_else_help(true),
+                )
+                .subcommand(
+                    Command::new("build")
+                    .about("Build a transactions (psbt)")
+                    .display_order(3)
+                    .arg(
+                        Arg::with_name("label")
+                        .takes_value(true)
+                        .short('l')
+                        .long("label")
+                        .help("Name given to the psbt")
+                    )
+                    .arg_required_else_help(true),
+                )
+                .subcommand(
+                    Command::new("check")
+                    .about("Check if a psbt is pending signature")
+                    .display_order(4)
+                )
+                .subcommand(
+                    Command::new("sign")
+                    .about("Sign a psbt")
+                    .display_order(5)
+                    .arg(
+                        Arg::with_name("label")
+                        .takes_value(true)
+                        .short('l')
+                        .long("label")
+                        .help("Name given to the psbt")
+                    )
+                    .arg_required_else_help(true),
+                )
+                .subcommand(
+                    Command::new("broadcast")
+                    .about("Broadcast a finalized psbt")
+                    .display_order(6)
+                    .arg(
+                        Arg::with_name("label")
+                        .takes_value(true)
+                        .short('l')
+                        .long("label")
+                        .help("Name given to the psbt")
+                    )
+                    .arg_required_else_help(true),
+                )
+                .subcommand(
+                    Command::new("backup")
+                    .about("Backup your contract")
+                    .display_order(7)
+                    .arg(
+                        Arg::with_name("label")
+                        .takes_value(true)
+                        .short('l')
+                        .long("label")
+                        .help("Name given to the psbt")
+                    )
+                    .arg_required_else_help(true),
+                )
+                .subcommand(
+                    Command::new("recover")
+                    .about("Recover a contract from a backup")
+                    .display_order(8)
                 )
 
         )
@@ -649,7 +744,8 @@ fn main() {
                     let ds_and_cypherpost = cypherpost::ops::create_cypherjson( &keys.social,post).unwrap();
                     let decryption_keys = cypherpost::ops::create_decryption_keys( &keys.social, &ds_and_cypherpost.0, recipients).unwrap();
                     let result = cypherpost::post::create(&server, key_pair, 0, &ds_and_cypherpost.0, &ds_and_cypherpost.1).unwrap();
-                    let result = cypherpost::post::keys(&server, key_pair, &result.id, decryption_keys).unwrap();
+                    let post_id = result.id;
+                    let result = cypherpost::post::keys(&server, key_pair, &post_id, decryption_keys).unwrap();
                     if result.status {
                         // let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap().posts;
                         // let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap().posts;
@@ -658,6 +754,9 @@ fn main() {
                         println!("SUCCESSFULLY POSTED!");
                         println!("===============================================");
                     }
+                    let ws_url = "ws://localhost:3021";
+                    let mut socket = notification::sync(ws_url, key_pair).unwrap();
+                    socket.write_message(Message::Text(post_id.into())).unwrap();
 
                 }
                 Some(("sync", _)) => {
@@ -686,22 +785,58 @@ fn main() {
                     };
 
                     let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
-
-    
+                    let ws_url = "ws://localhost:3021";
+                    println!("Establishing connection with cypherpost server...");
+                    let mut socket = notification::sync(ws_url, key_pair).unwrap();
+                    println!("===============================================");
                     let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap().posts;
                     let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap().posts;
                     let all_posts = cypherpost::ops::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
-                    println!("===============================================");
                     for post in all_posts.into_iter(){
-                        println!("{} :: {}", cypherpost::ops::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.value);
+                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.value);
                     }
-                    println!("===============================================");
+                    loop {
+                        let post_id = socket.read_message().expect("Error reading message");
+                        let cypherpost_single = cypherpost::post::single_post(&server, key_pair, &post_id.to_string()).unwrap();
+                        if cypherpost_single.clone().post.decryption_key.is_some(){
+                            let plain_post = cypherpost::ops::decrypt_others_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                            println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                        }
+                        else{
+                            let plain_post = cypherpost::ops::decrypt_my_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                            println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                        }
+
+                    }
 
                 }
                 _ => unreachable!(),
             }
         }
 
+        Some(("contract", service_matches))=>{
+            match service_matches.subcommand() {
+                Some(("init", _)) => {
+                }
+                Some(("info", _)) => {
+                }
+                Some(("receive", _)) => {
+                }
+                Some(("build", _)) => {
+                }
+                Some(("check", _)) => {
+                }
+                Some(("sign", _)) => {
+                }
+                Some(("broadcast", _)) => {
+                }
+                Some(("backup", _)) => {
+                }
+                Some(("recover", _)) => {
+                }
+                _ => unreachable!(),
+            }
+        }
         Some(("guide", _)) => {
             let title = "Leverage ✠f The Remnants";
             let subtitle = "A bitcoin contact co-ordination tool.";
@@ -733,10 +868,6 @@ fn main() {
             println!("{}", p11);
             println!("\x1b[92;1mcontract\x1b[0m",);
             println!("COMING SOON!");
-
-
-
-
         }
 
 

@@ -137,6 +137,7 @@ impl CypherPostModelResponse{
     }
 }
 
+
 pub fn my_posts(url: &str,key_pair: KeyPair)->Result<CypherPostModelResponse, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::Post(Some("self".to_string())).to_string();
     let mut rng = thread_rng();
@@ -171,6 +172,38 @@ pub fn others_posts(url: &str,key_pair: KeyPair)->Result<CypherPostModelResponse
     CypherPostModelResponse::structify(&response)
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CypherPostSingleModelResponse{
+    pub post: CypherPostModel
+}
+impl CypherPostSingleModelResponse{
+    pub fn structify(stringified: &str) -> Result<CypherPostSingleModelResponse, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying CypherPostSingleModelResponse"))
+            }
+        }
+    }
+}
+
+pub fn single_post(url: &str,key_pair: KeyPair,post_id: &str)->Result<CypherPostSingleModelResponse, S5Error>{
+    let full_url = url.to_string() + &APIEndPoint::Post(Some(post_id.to_string())).to_string();
+    let mut rng = thread_rng();
+    let random = rng.gen::<u64>();
+    let random_string = random.to_string();
+    let signature = sign_request(key_pair, HttpMethod::Get, APIEndPoint::Post(Some(post_id.to_string())), &random_string).unwrap();
+
+    let response: String = ureq::get(&full_url)
+        .set(&HttpHeader::Signature.to_string(), &signature)
+        .set(&HttpHeader::Pubkey.to_string(), &key_pair.public_key().to_string())
+        .set(&HttpHeader::Nonce.to_string(), &random_string)
+        .call().unwrap()
+        .into_string().unwrap();
+
+    CypherPostSingleModelResponse::structify(&response)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,7 +216,7 @@ mod tests {
     use crate::cypherpost::ops::{decrypt_my_posts,decrypt_others_posts};
     use bdk::bitcoin::network::constants::Network;
     
-    #[test]
+    #[test] #[ignore]
     fn test_post_flow(){
         let url = "http://localhost:3021";
         // ADMIN INVITE

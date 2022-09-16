@@ -18,17 +18,18 @@ lotr chat post <message>
 
 ## contract
 
-lotr contract init <name> <policy>
-lotr contract sync 
+lotr contract init <name>
+lotr contract sync
 // share pubkey and check if others have shared
 lotr contract info
 lotr contract receive <label>
-lotr contract send <label> <output>
+lotr contract build <label> <output>
+lotr contract check
 lotr contract sign <label>
 lotr contract broadcast <label>
 
-lotr contract backup <label>
-lotr contract recover <descriptor>
+lotr contract backup
+lotr contract recover
 
 ## tor
 *low priority*

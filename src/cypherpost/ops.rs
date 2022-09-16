@@ -50,7 +50,8 @@ pub enum APIEndPoint{
     Identity,
     AllIdentities,
     Post(Option<String>),
-    PostKeys
+    PostKeys,
+    Notifications
 }
 
 impl APIEndPoint{
@@ -66,6 +67,7 @@ impl APIEndPoint{
                 }
             },
             APIEndPoint::PostKeys=>"/api/v2/post/keys".to_string(),
+            APIEndPoint::Notifications=>"/api/v3/notifications".to_string(),
         }
     }
 }

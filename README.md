@@ -17,6 +17,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 Run the unit tests:
 
+NOTE: cypherpost unit tests will fail without a local instance of cypherpost server running.
+
+For this reason these tests are ignored by default.
+
 ```bash
 cargo test 
 ```
