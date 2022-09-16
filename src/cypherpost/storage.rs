@@ -1,10 +1,10 @@
 use crate::lib::sleddb;
-use crate::e::{ErrorKind, S5Error};
+use crate::lib::e::{ErrorKind, S5Error};
 use crate::cypherpost::model::{PlainPostModel};
 use crate::cypherpost::model::{ServerPreferences,AllPosts, AllContacts,CypherpostIdentity};
 
 pub fn create_prefs(prefs: ServerPreferences)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     let main_tree = sleddb::get_tree(db, "prefs").unwrap();
     // TODO!!! check if tree contains data, do not insert
     let bytes = bincode::serialize(&prefs).unwrap();
@@ -12,7 +12,7 @@ pub fn create_prefs(prefs: ServerPreferences)->Result<bool, S5Error>{
     Ok(true)
 }
 pub fn read_prefs()->Result<ServerPreferences, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     match sleddb::get_tree(db.clone(), "prefs"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -34,7 +34,7 @@ pub fn read_prefs()->Result<ServerPreferences, S5Error>{
     }
 }
 pub fn delete_prefs()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     let tree = sleddb::get_tree(db.clone(), "prefs").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -43,14 +43,14 @@ pub fn delete_prefs()->bool{
 }
 
 pub fn create_posts(post_models: Vec<PlainPostModel>)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     let main_tree = sleddb::get_tree(db, "posts").unwrap();
     let bytes = bincode::serialize(&post_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
 pub fn read_posts()->Result<AllPosts,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     match sleddb::get_tree(db.clone(), "posts"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -75,7 +75,7 @@ pub fn read_posts()->Result<AllPosts,S5Error>{
 
 }
 pub fn delete_posts()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     let tree = sleddb::get_tree(db.clone(), "posts").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -84,14 +84,14 @@ pub fn delete_posts()->bool{
 }
 
 pub fn create_contacts(contact_models: Vec<CypherpostIdentity>)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     let main_tree = sleddb::get_tree(db, "contacts").unwrap();
     let bytes = bincode::serialize(&contact_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
 pub fn read_all_contacts()->Result<AllContacts,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     match sleddb::get_tree(db.clone(), "contacts"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -116,7 +116,7 @@ pub fn read_all_contacts()->Result<AllContacts,S5Error>{
 
 }
 pub fn delete_contacts()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Team).unwrap();
     let tree = sleddb::get_tree(db.clone(), "contacts").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();

@@ -1,4 +1,4 @@
-use crate::e::{ErrorKind, S5Error};
+use crate::lib::e::{ErrorKind, S5Error};
 use secp256k1::{KeyPair};
 use ureq;
 use crate::cypherpost::handler::{HttpHeader,HttpMethod,APIEndPoint, sign_request};

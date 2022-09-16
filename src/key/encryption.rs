@@ -1,5 +1,5 @@
 use std::{str};
-use crate::e::{ErrorKind, S5Error};
+use crate::lib::e::{ErrorKind, S5Error};
 
 use chacha20poly1305::{XChaCha20Poly1305, Key, XNonce};
 use chacha20poly1305::aead::{Aead, NewAead};

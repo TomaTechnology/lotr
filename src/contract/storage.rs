@@ -1,5 +1,5 @@
 use crate::lib::sleddb;
-use crate::e::{ErrorKind, S5Error};
+use crate::lib::e::{ErrorKind, S5Error};
 use crate::contract::model::{NodeInfo, ContractInfo,ParticipantInfo};
 
 pub fn create_node_info(prefs: NodeInfo)->Result<bool, S5Error>{

@@ -8,7 +8,7 @@ pub const STORAGE_ROOT: &str = ".lotr"; // Database
 #[derive(Debug,Clone)]
 pub enum LotrDatabase{
     MasterKey,
-    Chat,
+    Team,
     Contract,
     Void
 }
@@ -17,7 +17,7 @@ impl LotrDatabase{
     pub fn to_string(&self)->String{
         match self{
             LotrDatabase::MasterKey=>"keys".to_string(),
-            LotrDatabase::Chat=>"chat".to_string(),
+            LotrDatabase::Team=>"team".to_string(),
             LotrDatabase::Contract=>"contract".to_string(),
             LotrDatabase::Void=>"void".to_string()
         }
@@ -25,7 +25,7 @@ impl LotrDatabase{
     pub fn from_str(db: &str)->LotrDatabase{
         match db {
             "keys"=>LotrDatabase::MasterKey,
-            "chat"=>LotrDatabase::Chat,
+            "team"=>LotrDatabase::Team,
             "contract"=>LotrDatabase::Contract,
             &_=>LotrDatabase::Void
         }

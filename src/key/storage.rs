@@ -1,5 +1,5 @@
 use crate::lib::sleddb;
-use crate::e::{ErrorKind, S5Error};
+use crate::lib::e::{ErrorKind, S5Error};
 use crate::key::model::{KeyStore};
 
 pub fn create(key_store: KeyStore)->Result<bool, S5Error>{

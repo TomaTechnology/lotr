@@ -6,13 +6,12 @@ use std::io::Write;
 use bitcoin::network::constants::Network;
 #[macro_use] extern crate text_io;
 
-mod config;
 
-mod e;
-use crate::e::{ErrorKind};
 
 mod lib;
 use crate::lib::sleddb;
+use crate::lib::e::{ErrorKind};
+use crate::lib::config;
 
 mod key;
 use crate::key::seed;
@@ -81,8 +80,8 @@ fn main() {
                 )   
         )
         .subcommand(
-            Command::new("chat")
-                .about("Messaging Ops")
+            Command::new("team")
+                .about("Co-ordination Ops")
                 .display_order(2)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
@@ -107,12 +106,12 @@ fn main() {
                     )    
                 )
                 .subcommand(
-                    Command::new("adminvite")
+                    Command::new("invite")
                     .about("Admin command to generate an invite code for contacts.")
                     .display_order(8)
                 )
                 .subcommand(
-                    Command::new("register")
+                    Command::new("join")
                     .about("Register your key as a given username.")
                     .display_order(1)
                     .arg(
@@ -132,14 +131,14 @@ fn main() {
                     .arg_required_else_help(true),  
                 )
                 .subcommand(
-                    Command::new("unregister")
+                    Command::new("leave")
                     .about("Unregister your key and username.")
                     .display_order(7)
 
                 )
                 .subcommand(
-                    Command::new("contacts")
-                    .about("Get all registered contacts.")
+                    Command::new("members")
+                    .about("Get all registered members.")
                     .display_order(2)
                 )
                 .subcommand(
@@ -476,7 +475,7 @@ fn main() {
             }
         }
 
-        Some(("chat", service_matches)) => {
+        Some(("team", service_matches)) => {
             match service_matches.subcommand() {
                 Some(("prefs", sub_matches)) => {
                     let matches =  &sub_matches.clone();
@@ -550,7 +549,7 @@ fn main() {
                         }
                     }
                 }
-                Some(("adminvite", _)) => {
+                Some(("invite", _)) => {
                     let prefs = match cypherpost::storage::read_prefs(){
                         Ok(value)=>value,
                         Err(e)=>{
@@ -580,7 +579,7 @@ fn main() {
                         }
                     }
                 }
-                Some(("register", sub_matches)) => {
+                Some(("join", sub_matches)) => {
                     let matches =  &sub_matches.clone();
                     let prefs = match cypherpost::storage::read_prefs(){
                         Ok(value)=>value,
@@ -634,7 +633,7 @@ fn main() {
                         }
                     }
                 }
-                Some(("unregister", _)) => {
+                Some(("leave", _)) => {
                     let prefs = match cypherpost::storage::read_prefs(){
                         Ok(value)=>value,
                         Err(e)=>{
@@ -683,7 +682,7 @@ fn main() {
                         }
                     }
                 }
-                Some(("contacts", _)) => {
+                Some(("members", _)) => {
                     let prefs = match cypherpost::storage::read_prefs(){
                         Ok(value)=>value,
                         Err(e)=>{

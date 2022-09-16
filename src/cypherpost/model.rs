@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::e::{S5Error,ErrorKind};
+use crate::lib::e::{S5Error,ErrorKind};
 
 pub enum ServerKind{
     Standard,
