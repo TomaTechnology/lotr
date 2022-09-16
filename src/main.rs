@@ -326,7 +326,7 @@ fn main() {
                             panic!("500");
                         }
                     };
-                    let key_store = key::storage::KeyStore::new(child_social,child_money);
+                    let key_store = key::model::KeyStore::new(child_social,child_money);
                     let encrypted = key_store.encrypt(&password);
                     let status = key::storage::create(encrypted).unwrap();
                     if status {
@@ -414,7 +414,7 @@ fn main() {
                         }
                     };
 
-                    let key_store = key::storage::KeyStore::new(child_social,child_money);
+                    let key_store = key::model::KeyStore::new(child_social,child_money);
                     let encrypted = key_store.encrypt(&password);
                 
                     let status = key::storage::create(encrypted).unwrap();
@@ -483,7 +483,7 @@ fn main() {
                     let server = matches.value_of("server");
                     let last_ds = matches.value_of("last_ds");
 
-                    let prefs : cypherpost::storage::PreferenceStore = match cypherpost::storage::read_prefs(){
+                    let prefs = match cypherpost::storage::read_prefs(){
                         Ok(mut result)=>{
                             //prefs exist
                             result.server = match server {
@@ -513,7 +513,7 @@ fn main() {
                         },
                         Err(_)=>{
                             // no prefs set
-                            cypherpost::storage::PreferenceStore{
+                            cypherpost::model::ServerPreferences{
                                 server: match server {
                                     Some(value)=>value.to_string(),
                                     None=>"localhost:3021".to_string()
@@ -562,7 +562,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
-                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);                    
+                    let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);                    
                     print!("Enter admin secret key: ");
                     std::io::stdout().flush().unwrap();
                     let admin_secret = read_password().unwrap();   
@@ -593,7 +593,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
-                    let server =cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);
+                    let server =prefs.server_url_parse(cypherpost::model::ServerKind::Standard);
                     let username = matches.value_of("username").unwrap();
                     let invite_code = matches.value_of("invite").unwrap();
 
@@ -646,7 +646,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };      
-                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);
+                    let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);
 
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
@@ -695,7 +695,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
-                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);                    
+                    let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);                    
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
                     let password = read_password().unwrap();
@@ -755,7 +755,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
-                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs.clone());                    
+                    let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);                    
 
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
@@ -808,7 +808,7 @@ fn main() {
                         println!("SUCCESSFULLY POSTED!");
                         println!("===============================================");
                     }
-                    let ws_url = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Websocket,prefs);
+                    let ws_url = prefs.server_url_parse(cypherpost::model::ServerKind::Websocket);
                     let mut socket = notification::sync(&ws_url, key_pair).unwrap();
                     socket.write_message(Message::Text(post_id.into())).unwrap();
 
@@ -825,7 +825,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
-                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs.clone());
+                    let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
                     let password = read_password().unwrap();
@@ -840,7 +840,7 @@ fn main() {
                     };
 
                     let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
-                    let ws_url = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Websocket,prefs);
+                    let ws_url = prefs.server_url_parse(cypherpost::model::ServerKind::Websocket);
                     println!("Establishing connection with cypherpost server...");
                     let mut socket = notification::sync(&ws_url, key_pair).unwrap();
                     println!("===============================================");

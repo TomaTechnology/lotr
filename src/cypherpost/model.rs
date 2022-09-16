@@ -1,6 +1,46 @@
 use serde::{Deserialize, Serialize};
 use crate::e::{S5Error,ErrorKind};
 
+pub enum ServerKind{
+    Standard,
+    Websocket
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ServerPreferences{
+    pub server: String,
+    pub last_ds: String
+}
+
+impl ServerPreferences {
+    pub fn new(server: &str, last_ds: &str)->Self{
+        ServerPreferences{
+            server: server.to_string(),
+            last_ds: last_ds.to_string()
+        }
+    }
+    pub fn server_url_parse(&self, kind: ServerKind)->String{
+        match kind{
+            ServerKind::Standard=>{
+                if self.server.starts_with("local") {
+                    "http://".to_string() + &self.server
+                }
+                else{
+                    "https://".to_string() + &self.server
+                }
+            }
+            ServerKind::Websocket=>{
+                if self.server.starts_with("local") {
+                    "ws://".to_string() + &self.server
+                }
+                else{
+                    "wss://".to_string() + &self.server
+                }
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CypherpostIdentity{
     pub username: String,
@@ -18,7 +58,6 @@ pub struct CypherPostModel{
     pub edited : bool,
     pub decryption_key: Option<String>
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum PostKind{
@@ -85,6 +124,16 @@ impl PlainPostModel{
 pub fn get_posts_by_kind(mut posts: Vec<PlainPostModel>, kind: PostKind)->Vec<PlainPostModel>{
     posts.retain(|x| x.plain_post.kind == kind);
     posts
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AllPosts{
+    pub posts: Vec<PlainPostModel>
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AllContacts{
+    pub contacts: Vec<CypherpostIdentity>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
