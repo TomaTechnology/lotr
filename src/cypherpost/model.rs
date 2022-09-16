@@ -118,13 +118,13 @@ impl PlainPostModel{
             }
         }
     }
-
+    pub fn get_posts_by_kind(mut posts: Vec<PlainPostModel>, kind: PostKind)->Vec<PlainPostModel>{
+        posts.retain(|x| x.plain_post.kind == kind);
+        posts
+    }
 }
 
-pub fn get_posts_by_kind(mut posts: Vec<PlainPostModel>, kind: PostKind)->Vec<PlainPostModel>{
-    posts.retain(|x| x.plain_post.kind == kind);
-    posts
-}
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AllPosts{
@@ -149,14 +149,6 @@ impl DecryptionKey{
         }
     }
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct LotrContract{
-    pub builder: String,
-    pub facilitator: String,
-    pub escrow: String,
-}
-
 
 #[cfg(test)]
 mod tests {

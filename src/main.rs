@@ -567,9 +567,9 @@ fn main() {
                     std::io::stdout().flush().unwrap();
                     let admin_secret = read_password().unwrap();   
                     match identity::admin_invite(&server, &admin_secret){
-                        Ok(result)=>{
+                        Ok(invite_code)=>{
                             println!("===============================================");
-                            println!("INVITE CODE: {}", result.invite_code);
+                            println!("INVITE CODE: {}", invite_code);
                             println!("===============================================");
                         }
                         Err(e)=>{
@@ -663,8 +663,8 @@ fn main() {
 
                     let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
                     match identity::remove(&server, key_pair){
-                        Ok(result)=>{
-                            if result.status{
+                        Ok(status)=>{
+                            if status{
                                 println!("===============================================");
                                 println!("SUCESSFULLY UNREGISTERED");
                                 println!("===============================================");
@@ -711,14 +711,14 @@ fn main() {
 
                     let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
                     match identity::get_all(&server, key_pair){
-                        Ok(result)=>{
-                            match cypherpost::storage::create_contacts(result.clone().identities){
+                        Ok(identities)=>{
+                            match cypherpost::storage::create_contacts(identities.clone()){
                                 Ok(_)=>{
                                     println!("===============================================");
                                     println!("CONTACTS");
                                     println!("===============================================");
 
-                                    for id in result.identities.into_iter()
+                                    for id in identities.into_iter()
                                     {
                                         println!("\x1b[0;92m{}\x1b[0m : {}\n", id.username,id.pubkey)
                                     }
@@ -795,15 +795,15 @@ fn main() {
                         }
                     };
 
-                    let ds_and_cypherpost = cypherpost::ops::create_cypherjson( &keys.social,post).unwrap();
-                    let decryption_keys = cypherpost::ops::create_decryption_keys( &keys.social, &ds_and_cypherpost.0, recipients).unwrap();
+                    let ds_and_cypherpost = cypherpost::handler::create_cypherjson( &keys.social,post).unwrap();
+                    let decryption_keys = cypherpost::handler::create_decryption_keys( &keys.social, &ds_and_cypherpost.0, recipients).unwrap();
                     let result = cypherpost::post::create(&server, key_pair, 0, &ds_and_cypherpost.0, &ds_and_cypherpost.1).unwrap();
                     let post_id = result.id;
                     let result = cypherpost::post::keys(&server, key_pair, &post_id, decryption_keys).unwrap();
                     if result.status {
                         // let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap().posts;
                         // let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap().posts;
-                        // let all_posts = cypherpost::ops::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
+                        // let all_posts = cypherpost::handler::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
                         println!("===============================================");
                         println!("SUCCESSFULLY POSTED!");
                         println!("===============================================");
@@ -846,9 +846,9 @@ fn main() {
                     println!("===============================================");
                     let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap().posts;
                     let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap().posts;
-                    let all_posts = cypherpost::ops::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
+                    let all_posts = cypherpost::handler::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
                     for post in all_posts.into_iter(){
-                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.value);
+                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.value);
                     }
                     loop {
                         match socket.read_message(){
@@ -856,12 +856,12 @@ fn main() {
                                 if msg.to_string().starts_with("s5p"){
                                     let cypherpost_single = cypherpost::post::single_post(&server, key_pair, &msg.to_string()).unwrap();
                                     if cypherpost_single.clone().post.decryption_key.is_some(){
-                                        let plain_post = cypherpost::ops::decrypt_others_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
-                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                                        let plain_post = cypherpost::handler::decrypt_others_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
                                     }
                                     else{
-                                        let plain_post = cypherpost::ops::decrypt_my_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
-                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                                        let plain_post = cypherpost::handler::decrypt_my_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
                                     }
                                 }
                                 else{

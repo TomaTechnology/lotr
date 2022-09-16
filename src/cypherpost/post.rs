@@ -1,7 +1,7 @@
 use crate::e::{ErrorKind, S5Error};
 use secp256k1::{KeyPair};
 use ureq;
-use crate::cypherpost::ops::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
+use crate::cypherpost::handler::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
 use crate::cypherpost::model::{CypherPostModel,DecryptionKey};
 use serde::{Deserialize, Serialize};
 use secp256k1::rand::{thread_rng,Rng};
@@ -213,7 +213,7 @@ mod tests {
     use crate::key::child;
     use crate::cypherpost::model;
     use crate::key::encryption::{cc20p1305_encrypt, key_hash256};
-    use crate::cypherpost::ops::{decrypt_my_posts,decrypt_others_posts};
+    use crate::cypherpost::handler::{decrypt_my_posts,decrypt_others_posts};
     use bdk::bitcoin::network::constants::Network;
     
     #[test] #[ignore]
@@ -221,16 +221,13 @@ mod tests {
         let url = "http://localhost:3021";
         // ADMIN INVITE
         let admin_invite_code = "098f6bcd4621d373cade4e832627b4f6";
-        let response = admin_invite(url,admin_invite_code).unwrap();
-        let client_invite_code1 = response.invite_code;
+        let client_invite_code1 = admin_invite(url,admin_invite_code).unwrap();
         assert_eq!(client_invite_code1.len() , 32);
         
-        let response = admin_invite(url,admin_invite_code).unwrap();
-        let client_invite_code2 = response.invite_code;
+        let client_invite_code2 = admin_invite(url,admin_invite_code).unwrap();
         assert_eq!(client_invite_code1.len() , 32);
 
-        let response = admin_invite(url,admin_invite_code).unwrap();
-        let client_invite_code3 = response.invite_code;
+        let client_invite_code3 = admin_invite(url,admin_invite_code).unwrap();
         assert_eq!(client_invite_code1.len() , 32);
 
         // REGISTER USERS
@@ -268,8 +265,8 @@ mod tests {
         assert!(response.status);
 
         // GET ALL USERS
-        let response = get_all(url, key_pair1).unwrap();
-        let user_count = response.identities.len();
+        let identities = get_all(url, key_pair1).unwrap();
+        let user_count = identities.len();
         assert!(user_count>0);
         println!("{:#?}", response);
 

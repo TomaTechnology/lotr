@@ -1,7 +1,7 @@
 use crate::e::{ErrorKind, S5Error};
 use secp256k1::{KeyPair};
 use ureq;
-use crate::cypherpost::ops::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
+use crate::cypherpost::handler::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
 use crate::cypherpost::model::{CypherpostIdentity};
 use serde::{Deserialize, Serialize};
 use secp256k1::rand::{thread_rng,Rng};
@@ -20,14 +20,14 @@ impl AdminInviteResponse{
         }
     }
 }
-pub fn admin_invite(url: &str, admin_secret: &str)->Result<AdminInviteResponse, S5Error>{
+pub fn admin_invite(url: &str, admin_secret: &str)->Result<String, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::AdminInvite.to_string();
     let response: String = ureq::get(&full_url)
         .set(&HttpHeader::AdminInvite.to_string(), admin_secret)
         .call().unwrap()
         .into_string().unwrap();
 
-    AdminInviteResponse::structify(&response)
+    Ok(AdminInviteResponse::structify(&response).unwrap().invite_code)
 }
 
 
@@ -93,7 +93,7 @@ impl AllIdentitiesResponse{
     }
 }
 
-pub fn get_all(url: &str,key_pair: KeyPair)->Result<AllIdentitiesResponse, S5Error>{
+pub fn get_all(url: &str,key_pair: KeyPair)->Result<Vec<CypherpostIdentity>, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::AllIdentities.to_string();
     let mut rng = thread_rng();
     let random = rng.gen::<u64>();
@@ -107,10 +107,10 @@ pub fn get_all(url: &str,key_pair: KeyPair)->Result<AllIdentitiesResponse, S5Err
         .call().unwrap()
         .into_string().unwrap();
 
-    AllIdentitiesResponse::structify(&response)
+    Ok(AllIdentitiesResponse::structify(&response).unwrap().identities)
 }
 
-pub fn remove(url: &str,key_pair: KeyPair)->Result<ClientIdentityStatusResponse, S5Error>{
+pub fn remove(url: &str,key_pair: KeyPair)->Result<bool, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::Identity.to_string();
     let mut rng = thread_rng();
     let random = rng.gen::<u64>();
@@ -124,7 +124,7 @@ pub fn remove(url: &str,key_pair: KeyPair)->Result<ClientIdentityStatusResponse,
         .call().unwrap()
         .into_string().unwrap();
 
-    ClientIdentityStatusResponse::structify(&response)
+    Ok(ClientIdentityStatusResponse::structify(&response).unwrap().status)
 }
 
 #[cfg(test)]
@@ -139,8 +139,7 @@ mod tests {
         let url = "http://localhost:3021";
         // ADMIN INVITE
         let admin_invite_code = "098f6bcd4621d373cade4e832627b4f6";
-        let response = admin_invite(url,admin_invite_code).unwrap();
-        let client_invite_code = response.invite_code;
+        let client_invite_code = admin_invite(url,admin_invite_code).unwrap();
         assert_eq!(client_invite_code.len() , 32);
         // REGISTER USER
         let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
@@ -152,12 +151,12 @@ mod tests {
         let response = register(url, key_pair, &client_invite_code, &username).unwrap();
         assert!(response.status);
         // GET ALL USERS
-        let response = get_all(url, key_pair).unwrap();
-        let user_count = response.identities.len();
+        let identities = get_all(url, key_pair).unwrap();
+        let user_count = identities.len();
         assert!(user_count>0);
         println!("{:#?}", response);
         // REMOVE ONE USER
-        let response = remove(url, key_pair).unwrap();
-        assert!(response.status);
+        let status = remove(url, key_pair).unwrap();
+        assert!(status);
     }
 }

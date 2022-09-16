@@ -3,7 +3,7 @@ use tungstenite::protocol::WebSocket;
 use tungstenite::stream::MaybeTlsStream;
 use std::net::TcpStream;
 use http::{Request};
-use crate::cypherpost::ops::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
+use crate::cypherpost::handler::{HttpHeader,HttpMethod,APIEndPoint, sign_request};
 use secp256k1::rand::{thread_rng,Rng};
 use secp256k1::{KeyPair};
 
@@ -44,8 +44,7 @@ mod tests {
         let url = "http://localhost:3021";
         // ADMIN INVITE
         let admin_invite_code = "098f6bcd4621d373cade4e832627b4f6";
-        let response = admin_invite(url,admin_invite_code).unwrap();
-        let client_invite_code = response.invite_code;
+        let client_invite_code = admin_invite(url,admin_invite_code).unwrap();
         assert_eq!(client_invite_code.len() , 32);
         // REGISTER USER
         let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
@@ -57,8 +56,8 @@ mod tests {
         let response = register(url, key_pair, &client_invite_code, &username).unwrap();
         assert!(response.status);
         // GET ALL USERS
-        let response = get_all(url, key_pair).unwrap();
-        let user_count = response.identities.len();
+        let identities = get_all(url, key_pair).unwrap();
+        let user_count = identities.len();
         assert!(user_count>0);
         let ws_url = "ws://localhost:3021";
         let mut socket = sync(ws_url, key_pair).unwrap();
@@ -67,25 +66,10 @@ mod tests {
         //     let msg = socket.read_message().expect("Error reading message");
         //     println!("{}", msg);
         // }
-        
         // REMOVE THE GUY
-        let response = remove(url, key_pair).unwrap();
-        assert!(response.status);
+        let status = remove(url, key_pair).unwrap();
+        assert!(status);
 
-        // socket.write_message(Message::Text(r#"{
-        //     "action": "authenticate",
-        //     "data": {
-        //         "key_id": "API-KEY",
-        //         "secret_key": "SECRET-KEY"
-        //     }
-        // }"#.into()));
-        
-        // socket.write_message(Message::Text(r#"{
-        //     "action": "listen",
-        //     "data": {
-        //         "streams": ["AM.SPY"]
-        //     }
-        // }"#.into()));
         
      
     }
