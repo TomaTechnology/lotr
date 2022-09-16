@@ -38,22 +38,21 @@ impl CypherPostIdResponse{
     }
 }
 
-pub fn create(url: &str,key_pair: KeyPair, expiry: u64, derivation_scheme: &str, cypher_json: &str)->Result<CypherPostIdResponse, S5Error>{
+pub fn create(url: &str,key_pair: KeyPair, cpost_req: CypherPostRequest)->Result<String, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::Post(None).to_string();
     let mut rng = thread_rng();
     let random = rng.gen::<u64>();
     let random_string = random.to_string();
     let signature = sign_request(key_pair, HttpMethod::Put, APIEndPoint::Post(None), &random_string).unwrap();
-    let body = CypherPostRequest::new(expiry,derivation_scheme,cypher_json);
 
     let response: String = ureq::put(&full_url)
         .set(&HttpHeader::Signature.to_string(), &signature)
         .set(&HttpHeader::Pubkey.to_string(), &key_pair.public_key().to_string())
         .set(&HttpHeader::Nonce.to_string(), &random_string)
-        .send_json(body).unwrap()
+        .send_json(cpost_req).unwrap()
         .into_string().unwrap();
 
-    CypherPostIdResponse::structify(&response)
+    Ok(CypherPostIdResponse::structify(&response).unwrap().id)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -71,7 +70,7 @@ impl PostStatusResponse{
     }
 }
 
-pub fn remove(url: &str,key_pair: KeyPair, id: &str)->Result<PostStatusResponse, S5Error>{
+pub fn remove(url: &str,key_pair: KeyPair, id: &str)->Result<bool, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::Post(Some(id.to_string())).to_string();
     let mut rng = thread_rng();
     let random = rng.gen::<u64>();
@@ -85,7 +84,7 @@ pub fn remove(url: &str,key_pair: KeyPair, id: &str)->Result<PostStatusResponse,
         .call().unwrap()
         .into_string().unwrap();
 
-    PostStatusResponse::structify(&response)
+    Ok(PostStatusResponse::structify(&response).unwrap().status)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -138,7 +137,7 @@ impl CypherPostModelResponse{
 }
 
 
-pub fn my_posts(url: &str,key_pair: KeyPair)->Result<CypherPostModelResponse, S5Error>{
+pub fn my_posts(url: &str,key_pair: KeyPair)->Result<Vec<CypherPostModel>, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::Post(Some("self".to_string())).to_string();
     let mut rng = thread_rng();
     let random = rng.gen::<u64>();
@@ -152,10 +151,10 @@ pub fn my_posts(url: &str,key_pair: KeyPair)->Result<CypherPostModelResponse, S5
         .call().unwrap()
         .into_string().unwrap();
 
-    CypherPostModelResponse::structify(&response)
+    Ok(CypherPostModelResponse::structify(&response).unwrap().posts)
 }
 
-pub fn others_posts(url: &str,key_pair: KeyPair)->Result<CypherPostModelResponse, S5Error>{
+pub fn others_posts(url: &str,key_pair: KeyPair)->Result<Vec<CypherPostModel>, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::Post(Some("others".to_string())).to_string();
     let mut rng = thread_rng();
     let random = rng.gen::<u64>();
@@ -169,25 +168,25 @@ pub fn others_posts(url: &str,key_pair: KeyPair)->Result<CypherPostModelResponse
         .call().unwrap()
         .into_string().unwrap();
 
-    CypherPostModelResponse::structify(&response)
+    Ok(CypherPostModelResponse::structify(&response).unwrap().posts)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CypherPostSingleModelResponse{
+pub struct CypherPostSingleResponse{
     pub post: CypherPostModel
 }
-impl CypherPostSingleModelResponse{
-    pub fn structify(stringified: &str) -> Result<CypherPostSingleModelResponse, S5Error> {
+impl CypherPostSingleResponse{
+    pub fn structify(stringified: &str) -> Result<CypherPostSingleResponse, S5Error> {
         match serde_json::from_str(stringified) {
             Ok(result) => Ok(result),
             Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying CypherPostSingleModelResponse"))
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying CypherPostSingleResponse"))
             }
         }
     }
 }
 
-pub fn single_post(url: &str,key_pair: KeyPair,post_id: &str)->Result<CypherPostSingleModelResponse, S5Error>{
+pub fn single_post(url: &str,key_pair: KeyPair,post_id: &str)->Result<CypherPostModel, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::Post(Some(post_id.to_string())).to_string();
     let mut rng = thread_rng();
     let random = rng.gen::<u64>();
@@ -201,7 +200,7 @@ pub fn single_post(url: &str,key_pair: KeyPair,post_id: &str)->Result<CypherPost
         .call().unwrap()
         .into_string().unwrap();
 
-    CypherPostSingleModelResponse::structify(&response)
+    Ok(CypherPostSingleResponse::structify(&response).unwrap().post)
 }
 
 #[cfg(test)]
@@ -286,8 +285,8 @@ mod tests {
         // Encrypt it into cypherjson
         let cypher_json = cc20p1305_encrypt(&stringy_xpub, &encryption_key).unwrap();
         // PUT cypherjson
-        let response = create(url,key_pair1, 0, encryption_key_scheme,&cypher_json).unwrap();
-        let post_id = response.id;
+        let cpost_req = CypherPostRequest::new(0, encryption_key_scheme,&cypher_json);
+        let post_id = create(url,key_pair1, cpost_req).unwrap();
         assert_eq!(post_id.len(), 24);
         // calculate shared secrets with recipients
         let user12ss = ec::compute_shared_secret_str(&xonly_pair1.seckey, &xonly_pair2.pubkey).unwrap();
@@ -303,30 +302,30 @@ mod tests {
         let response = keys(url, key_pair1, &post_id,decryption_keys).unwrap();
         assert!(response.status);
         // Get posts & keys as user2
-        let response = others_posts(url,key_pair2).unwrap();
-        assert_eq!(response.posts.len(),1);
-        println!("{:#?}",response.posts);
-        let decrypted = decrypt_others_posts(response.posts, &social_child2.xprv).unwrap();
+        let posts = others_posts(url,key_pair2).unwrap();
+        assert_eq!(posts.len(),1);
+        println!("{:#?}",posts);
+        let decrypted = decrypt_others_posts(posts, &social_child2.xprv).unwrap();
         assert_eq!(decrypted.len(),1);
         assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
 
         // Get posts & keys as user3
-        let response = others_posts(url,key_pair3).unwrap();
-        assert_eq!(response.posts.len(),1);
-        println!("{:#?}",response.posts);
-        let decrypted = decrypt_others_posts(response.posts, &social_child3.xprv).unwrap();
+        let posts = others_posts(url,key_pair3).unwrap();
+        assert_eq!(posts.len(),1);
+        println!("{:#?}",posts);
+        let decrypted = decrypt_others_posts(posts, &social_child3.xprv).unwrap();
         assert_eq!(decrypted.len(),1);
         assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
 
         // Get posts as self
-        let response = my_posts(url,key_pair1).unwrap();
-        assert_eq!(response.posts.len(),1);
-        let decrypted = decrypt_my_posts(response.posts, &social_child1.xprv).unwrap();
+        let posts = my_posts(url,key_pair1).unwrap();
+        assert_eq!(posts.len(),1);
+        let decrypted = decrypt_my_posts(posts, &social_child1.xprv).unwrap();
         assert_eq!(decrypted.len(),1);
         assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
         // Delete post
-        let response = remove(url,key_pair1, &post_id).unwrap();
-        assert!(response.status);
+        let status = remove(url,key_pair1, &post_id).unwrap();
+        assert!(status);
         // KEEP BUILDING!
 
     }

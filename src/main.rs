@@ -797,13 +797,10 @@ fn main() {
 
                     let ds_and_cypherpost = cypherpost::handler::create_cypherjson( &keys.social,post).unwrap();
                     let decryption_keys = cypherpost::handler::create_decryption_keys( &keys.social, &ds_and_cypherpost.0, recipients).unwrap();
-                    let result = cypherpost::post::create(&server, key_pair, 0, &ds_and_cypherpost.0, &ds_and_cypherpost.1).unwrap();
-                    let post_id = result.id;
+                    let cpost_req = cypherpost::post::CypherPostRequest::new(0, &ds_and_cypherpost.0, &ds_and_cypherpost.1);
+                    let post_id = cypherpost::post::create(&server, key_pair,cpost_req).unwrap();
                     let result = cypherpost::post::keys(&server, key_pair, &post_id, decryption_keys).unwrap();
                     if result.status {
-                        // let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap().posts;
-                        // let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap().posts;
-                        // let all_posts = cypherpost::handler::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
                         println!("===============================================");
                         println!("SUCCESSFULLY POSTED!");
                         println!("===============================================");
@@ -844,8 +841,8 @@ fn main() {
                     println!("Establishing connection with cypherpost server...");
                     let mut socket = notification::sync(&ws_url, key_pair).unwrap();
                     println!("===============================================");
-                    let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap().posts;
-                    let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap().posts;
+                    let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap();
+                    let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap();
                     let all_posts = cypherpost::handler::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
                     for post in all_posts.into_iter(){
                         println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.value);
@@ -855,12 +852,12 @@ fn main() {
                             Ok(msg)=>{
                                 if msg.to_string().starts_with("s5p"){
                                     let cypherpost_single = cypherpost::post::single_post(&server, key_pair, &msg.to_string()).unwrap();
-                                    if cypherpost_single.clone().post.decryption_key.is_some(){
-                                        let plain_post = cypherpost::handler::decrypt_others_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                                    if cypherpost_single.clone().decryption_key.is_some(){
+                                        let plain_post = cypherpost::handler::decrypt_others_posts([cypherpost_single].to_vec(), &keys.social).unwrap();
                                         println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
                                     }
                                     else{
-                                        let plain_post = cypherpost::handler::decrypt_my_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                                        let plain_post = cypherpost::handler::decrypt_my_posts([cypherpost_single].to_vec(), &keys.social).unwrap();
                                         println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
                                     }
                                 }
