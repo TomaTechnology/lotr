@@ -5,6 +5,11 @@ use crate::cypherpost::model::{CypherpostIdentity};
 
 use serde::{Deserialize, Serialize};
 
+pub enum ServerKind{
+    Standard,
+    Websocket
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PreferenceStore{
     pub server: String,
@@ -58,7 +63,26 @@ pub fn delete_prefs()->bool{
     db.drop_tree(&tree.name()).unwrap();
     true
 }
-
+pub fn server_url_parse(kind: ServerKind, prefs: PreferenceStore)->String{
+    match kind{
+        ServerKind::Standard=>{
+            if prefs.server.starts_with("local") {
+                "http://".to_string() + &prefs.server
+            }
+            else{
+                "https://".to_string() + &prefs.server
+            }
+        }
+        ServerKind::Websocket=>{
+            if prefs.server.starts_with("local") {
+                "ws://".to_string() + &prefs.server
+            }
+            else{
+                "wss://".to_string() + &prefs.server
+            }
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PostStore{
     pub posts: Vec<PlainPostModel>

@@ -455,7 +455,21 @@ fn main() {
                         Ok(mut result)=>{
                             //prefs exist
                             result.server = match server {
-                                Some(value)=>value.to_string(),
+                                Some(value)=>{
+                                    if value.to_string().starts_with("local") {
+                                        value.to_string() + ":3021"
+                                    }
+                                    else if value.to_string().starts_with("http://"){
+                                        value.to_string().replace("http://", "")
+                                    }
+                                    else if value.to_string().starts_with("https://"){
+                                        value.to_string().replace("https://", "")
+                                    }
+                                    else{
+                                        value.to_string()
+                                    }
+                                    
+                                },
                                 None=>result.server
                             };
                             result.last_ds = match last_ds{
@@ -470,7 +484,7 @@ fn main() {
                             cypherpost::storage::PreferenceStore{
                                 server: match server {
                                     Some(value)=>value.to_string(),
-                                    None=>"http://localhost:3021".to_string()
+                                    None=>"localhost:3021".to_string()
                                 },
                                 last_ds: match last_ds{
                                     Some(value)=>value.to_string(),
@@ -505,8 +519,8 @@ fn main() {
                     }
                 }
                 Some(("adminvite", _)) => {
-                    let server = match cypherpost::storage::read_prefs(){
-                        Ok(value)=>value.server,
+                    let prefs = match cypherpost::storage::read_prefs(){
+                        Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
@@ -516,6 +530,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
+                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);                    
                     print!("Enter admin secret key: ");
                     std::io::stdout().flush().unwrap();
                     let admin_secret = read_password().unwrap();   
@@ -535,8 +550,8 @@ fn main() {
                 }
                 Some(("register", sub_matches)) => {
                     let matches =  &sub_matches.clone();
-                    let server = match cypherpost::storage::read_prefs(){
-                        Ok(value)=>value.server,
+                    let prefs = match cypherpost::storage::read_prefs(){
+                        Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
@@ -546,6 +561,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
+                    let server =cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);
                     let username = matches.value_of("username").unwrap();
                     let invite_code = matches.value_of("invite").unwrap();
 
@@ -587,8 +603,8 @@ fn main() {
                     }
                 }
                 Some(("unregister", _)) => {
-                    let server = match cypherpost::storage::read_prefs(){
-                        Ok(value)=>value.server,
+                    let prefs = match cypherpost::storage::read_prefs(){
+                        Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
@@ -597,7 +613,9 @@ fn main() {
                             println!("===============================================");
                             panic!("500");  
                         } 
-                    };                    
+                    };      
+                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);
+
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
                     let password = read_password().unwrap();
@@ -634,8 +652,8 @@ fn main() {
                     }
                 }
                 Some(("contacts", _)) => {
-                    let server = match cypherpost::storage::read_prefs(){
-                        Ok(value)=>value.server,
+                    let prefs = match cypherpost::storage::read_prefs(){
+                        Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
@@ -644,7 +662,9 @@ fn main() {
                             println!("===============================================");
                             panic!("500");  
                         } 
-                    };                    print!("Enter password to decrypt your key: ");
+                    };
+                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs);                    
+                    print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
                     let password = read_password().unwrap();
                     let keys = match key::storage::read(){
@@ -692,8 +712,8 @@ fn main() {
                     let matches =  &sub_matches.clone();
                     let to = matches.value_of("to").unwrap();
                     let to: Vec<String> = to.split(",").map(|s| s.to_string()).collect();
-                    let server = match cypherpost::storage::read_prefs(){
-                        Ok(value)=>value.server,
+                    let prefs = match cypherpost::storage::read_prefs(){
+                        Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
@@ -703,6 +723,8 @@ fn main() {
                             panic!("500");  
                         } 
                     };
+                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs.clone());                    
+
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
                     let password = read_password().unwrap();
@@ -754,14 +776,14 @@ fn main() {
                         println!("SUCCESSFULLY POSTED!");
                         println!("===============================================");
                     }
-                    let ws_url = "ws://localhost:3021";
-                    let mut socket = notification::sync(ws_url, key_pair).unwrap();
+                    let ws_url = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Websocket,prefs);
+                    let mut socket = notification::sync(&ws_url, key_pair).unwrap();
                     socket.write_message(Message::Text(post_id.into())).unwrap();
 
                 }
                 Some(("sync", _)) => {
-                    let server = match cypherpost::storage::read_prefs(){
-                        Ok(value)=>value.server,
+                    let prefs = match cypherpost::storage::read_prefs(){
+                        Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
@@ -771,6 +793,7 @@ fn main() {
                             panic!("500");  
                         } 
                     };
+                    let server = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Standard,prefs.clone());
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
                     let password = read_password().unwrap();
@@ -785,9 +808,9 @@ fn main() {
                     };
 
                     let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
-                    let ws_url = "ws://localhost:3021";
+                    let ws_url = cypherpost::storage::server_url_parse(cypherpost::storage::ServerKind::Websocket,prefs);
                     println!("Establishing connection with cypherpost server...");
-                    let mut socket = notification::sync(ws_url, key_pair).unwrap();
+                    let mut socket = notification::sync(&ws_url, key_pair).unwrap();
                     println!("===============================================");
                     let my_posts = cypherpost::post::my_posts(&server, key_pair).unwrap().posts;
                     let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap().posts;
@@ -796,16 +819,31 @@ fn main() {
                         println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.value);
                     }
                     loop {
-                        let post_id = socket.read_message().expect("Error reading message");
-                        let cypherpost_single = cypherpost::post::single_post(&server, key_pair, &post_id.to_string()).unwrap();
-                        if cypherpost_single.clone().post.decryption_key.is_some(){
-                            let plain_post = cypherpost::ops::decrypt_others_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
-                            println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                        match socket.read_message(){
+                            Ok(msg)=>{
+                                if msg.to_string().starts_with("s5p"){
+                                    let cypherpost_single = cypherpost::post::single_post(&server, key_pair, &msg.to_string()).unwrap();
+                                    if cypherpost_single.clone().post.decryption_key.is_some(){
+                                        let plain_post = cypherpost::ops::decrypt_others_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                                    }
+                                    else{
+                                        let plain_post = cypherpost::ops::decrypt_my_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                                    }
+                                }
+                                else{
+                                    println!(
+                                        "{:#?}",msg.to_string()
+                                    )
+                                }
+                            }
+                            Err(_)=>{
+                                socket = notification::sync(&ws_url, key_pair).unwrap()
+                            }
                         }
-                        else{
-                            let plain_post = cypherpost::ops::decrypt_my_posts([cypherpost_single.post].to_vec(), &keys.social).unwrap();
-                            println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::ops::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
-                        }
+
+
 
                     }
 
