@@ -24,6 +24,7 @@ use crate::cypherpost::identity;
 use crate::cypherpost::notification;
 use tungstenite::{Message};
 
+mod contract;
 
 fn main() {
     let matches = App::new("\x1b[0;92ml✠tr\x1b[0m")
@@ -45,11 +46,28 @@ fn main() {
                     Command::new("generate")
                     .about("Generate a Master Key.")
                     .display_order(0)
+                    .arg(
+                        Arg::with_name("test")
+                        .takes_value(true)
+                        .short('t')
+                        .id("test")
+                        .long("test")
+                        .takes_value(false)
+                        .help("Use testnet")
+                    )
                 )
                 .subcommand(
                     Command::new("import")
                     .about("Import a Master Key From an External Device. *SAFER - NO PRINT*")
                     .display_order(1)
+                    .arg(
+                        Arg::with_name("test")
+                        .takes_value(true)
+                        .short('t')
+                        .long("test")
+                        .takes_value(false)
+                        .help("Use testnet")
+                    )
                 )
                 .subcommand(
                     Command::new("status")
@@ -242,7 +260,8 @@ fn main() {
     match matches.subcommand() {
         Some(("key", service_matches)) => {
             match service_matches.subcommand() {
-                Some(("generate", _)) => {
+                Some(("generate", sub_matches)) => {
+                    let test = sub_matches.args_present();
                     let dup_check = key::storage::read();
                     match dup_check{
                         Ok(_)=>{
@@ -275,7 +294,13 @@ fn main() {
                         println!("===============================================");
                         panic!("400")
                     }
-                    let seed = match seed::generate(24, "", Network::Bitcoin) {
+                    let network = if test {
+                        Network::Bitcoin
+                    } else{
+                        Network::Testnet
+                    };
+
+                    let seed = match seed::generate(24, "", network) {
                         Ok(master_key) => {
                             master_key
                         },
@@ -317,7 +342,8 @@ fn main() {
 
                     }
                 }
-                Some(("import", _)) => {
+                Some(("import", sub_matches)) => {
+                    let test = sub_matches.args_present();
                     let dup_check = key::storage::read();
                     match dup_check{
                         Ok(_)=>{
@@ -355,7 +381,13 @@ fn main() {
                         panic!("400")
                     }
 
-                    let seed = match seed::import(&mnemonic, "", Network::Bitcoin) {
+                    let network = if test {
+                        Network::Bitcoin
+                    } else{
+                        Network::Testnet
+                    };
+
+                    let seed = match seed::import(&mnemonic, "", network) {
                         Ok(master_key) => {
                             master_key
                         },

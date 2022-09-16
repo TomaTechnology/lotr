@@ -48,3 +48,26 @@ cargo run mk delete --username "ishi"
 # Deletes the selected key
 
 ```
+
+### Releases
+
+#### Verifying a binary
+
+MAC
+```bash
+shasum -a 256 /path/to/lotr
+```
+
+LINUX
+```bash
+sha256sum -a /path/to/lotr
+```
+
+Copy the binary into /usr/local/bin
+
+
+### Local Storage
+
+SledDb creates its database at `~/.lotr`
+
+If you want to purge all your local data, just delete this folder.

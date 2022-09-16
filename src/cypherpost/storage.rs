@@ -26,7 +26,7 @@ impl PreferenceStore {
 }
 
 pub fn create_prefs(prefs: PreferenceStore)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Preferences).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     let main_tree = sleddb::get_tree(db, "prefs").unwrap();
     // TODO!!! check if tree contains data, do not insert
     let bytes = bincode::serialize(&prefs).unwrap();
@@ -34,7 +34,7 @@ pub fn create_prefs(prefs: PreferenceStore)->Result<bool, S5Error>{
     Ok(true)
 }
 pub fn read_prefs()->Result<PreferenceStore, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Preferences).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     match sleddb::get_tree(db.clone(), "prefs"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -56,7 +56,7 @@ pub fn read_prefs()->Result<PreferenceStore, S5Error>{
     }
 }
 pub fn delete_prefs()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Preferences).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     let tree = sleddb::get_tree(db.clone(), "prefs").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -89,14 +89,14 @@ pub struct PostStore{
 }
 
 pub fn create_posts(post_models: Vec<PlainPostModel>)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Posts).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     let main_tree = sleddb::get_tree(db, "posts").unwrap();
     let bytes = bincode::serialize(&post_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
 pub fn read_posts()->Result<PostStore,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Posts).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     match sleddb::get_tree(db.clone(), "posts"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -121,7 +121,7 @@ pub fn read_posts()->Result<PostStore,S5Error>{
 
 }
 pub fn delete_posts()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Posts).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     let tree = sleddb::get_tree(db.clone(), "posts").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -134,14 +134,14 @@ pub struct ContactStore{
 }
 
 pub fn create_contacts(contact_models: Vec<CypherpostIdentity>)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contacts).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     let main_tree = sleddb::get_tree(db, "contacts").unwrap();
     let bytes = bincode::serialize(&contact_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
 pub fn read_all_contacts()->Result<ContactStore,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contacts).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     match sleddb::get_tree(db.clone(), "contacts"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -166,7 +166,7 @@ pub fn read_all_contacts()->Result<ContactStore,S5Error>{
 
 }
 pub fn delete_contacts()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contacts).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Chat).unwrap();
     let tree = sleddb::get_tree(db.clone(), "contacts").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -219,7 +219,7 @@ mod tests {
     let status = delete_contacts();
     assert!(status);
   }
-
+  #[test]
   fn test_preference_store(){
     let prefs = PreferenceStore::new("https://localhost:3021","m/1h/0h");
     let status = create_prefs(prefs.clone()).unwrap();
