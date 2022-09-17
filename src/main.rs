@@ -80,8 +80,8 @@ fn main() {
                 )   
         )
         .subcommand(
-            Command::new("team")
-                .about("Co-ordination Ops")
+            Command::new("network")
+                .about("Coordination Ops")
                 .display_order(2)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
@@ -475,7 +475,7 @@ fn main() {
             }
         }
 
-        Some(("team", service_matches)) => {
+        Some(("network", service_matches)) => {
             match service_matches.subcommand() {
                 Some(("prefs", sub_matches)) => {
                     let matches =  &sub_matches.clone();
@@ -555,7 +555,7 @@ fn main() {
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
-                            println!("USE lotr chat prefs --server <SERVER_URL>");
+                            println!("USE lotr network prefs --server <SERVER_URL>");
                             println!("{:#?}",e);
                             println!("===============================================");
                             panic!("500");  
@@ -905,14 +905,14 @@ fn main() {
         }
         Some(("guide", _)) => {
             let title = "Leverage ✠f The Remnants";
-            let subtitle = "A bitcoin contact co-ordination tool.";
-            let p1 = "The 'lotr' tool contains 3 primary commands: key, chat and contract.";
-            let p2 = "Start by creating a key pair using the generate sub-command. This command will print your seed onto the screen.";
+            let subtitle = "A bitcoin contract co-ordination tool.";
+            let p1 = "The 'lotr' tool contains 3 primary commands: key, network and contract.";
+            let p2 = "Start by creating a key pair using the generate sub-command. This command will print your seed onto the screen.\n";
             let p3 = "If you want a higher level of security, create your seed on a device like a cold card and use the import sub-command instead which will not print to screen but requires typing your seed. You can confirm you typed the right seed by verifying the fingerprint.";
             let p4 = "Your seed words are not saved to the disk; only root xprvs are saved. So make sure you have physical backups of your mnemonics.";
-            let p5 = "You must set a password to encrypt your keys at test. We recommend writing this down too.";
-            let p6 = "The next step is to setup preferences for a cypherpost chat server using the prefs sub-command.";
-            let p7 = "Initially only set a value for --server. last_ds is only required when you are recovering an old account.\nNOTE: chat commands will not work without a server being set.";
+            let p5 = "You must set a password to encrypt your keys at rest. We recommend writing this password down too.";
+            let p6 = "The next step is to setup preferences for a cypherpost network server using the prefs sub-command with --server argument.\n";
+            let p7 = "Initially only set a value for --server. last_ds is only required when you are recovering an old account.\nNOTE: network commands will not work without a server being set.";
             let p8 = "If you are the admin; use adminvite to generate invite codes for other users.";
             let p9 = "After an admin gives you an invite code, use it with the register sub-command.";
             let p10 = "After registering you can view others on the server using the contacts sub-command.";
@@ -925,7 +925,7 @@ fn main() {
             println!("{}", p3);
             println!("{}", p4);
             println!("{}", p5);
-            println!("\x1b[92;1mchat\x1b[0m",);
+            println!("\x1b[92;1mnetwork\x1b[0m",);
             println!("{}", p6);
             println!("{}", p7);
             println!("{}", p8);
