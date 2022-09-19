@@ -2,7 +2,7 @@ use crate::key::ec;
 use secp256k1::{KeyPair};
 use crate::lib::e::{S5Error,ErrorKind};
 use crate::cypherpost;
-use crate::cypherpost::model::{CypherPostModel,PlainPostModel,PlainPost,DecryptionKey,CypherpostIdentity,PostItem,PostKind};
+use crate::cypherpost::model::{CypherPostModel,PlainPostModel,PlainPost,DecryptionKey,CypherpostIdentity,PostItem,PostKind,ServerPreferences};
 use crate::key;
 use crate::key::child;
 use crate::key::encryption::{key_hash256,cc20p1305_decrypt,cc20p1305_encrypt};
@@ -94,9 +94,11 @@ pub fn sign_request(key_pair: KeyPair, method: HttpMethod, endpoint: APIEndPoint
     let signature = ec::schnorr_sign(&message, key_pair).unwrap();
     return Ok(signature.to_string());
 }
-
 fn get_and_update_last_ds()->String{
-    let mut prefs = cypherpost::storage::read_prefs().unwrap();
+    let mut prefs: ServerPreferences = cypherpost::storage::read_prefs().unwrap_or(ServerPreferences{
+        last_ds: "m/1h/0h".to_string(),
+        server: "localhost:3021".to_string()
+    });
     let last_ds = prefs.last_ds;
     let mut split_ds: Vec<String> = last_ds.replace("h","").replace("'","").split("/").map(|s| s.to_string()).collect();
     let rotator = split_ds.pop().unwrap().parse::<u64>().unwrap() + 1;
@@ -119,7 +121,6 @@ pub fn create_cypherjson(social_root: &str, post: PlainPost)->Result<(String,Str
     let cypher_json = cc20p1305_encrypt(&post.stringify().unwrap(), &encryption_key).unwrap();
     Ok((ds,cypher_json))
 }
-
 pub fn create_decryption_keys(social_root: &str, derivation_scheme: &str, recipients: Vec<CypherpostIdentity>)->Result<Vec<DecryptionKey>,S5Error>{
     let enc_source = key::child::to_path_str(social_root, &derivation_scheme).unwrap().xprv;
     let encryption_key  = key_hash256(&enc_source);
@@ -172,7 +173,6 @@ pub fn decrypt_my_posts(my_posts: Vec<CypherPostModel>, social_root: &str)->Resu
         }
     }).collect())
 }
-
 pub fn update_and_organize_posts(my_posts: Vec<CypherPostModel>, others_posts: Vec<CypherPostModel>,social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
     let mut all_posts = decrypt_my_posts(my_posts, social_root).unwrap();
     let mut others_posts = decrypt_others_posts(others_posts, social_root).unwrap();
@@ -192,7 +192,6 @@ pub fn get_username_by_pubkey(pubkey: &str)->Result<String,S5Error>{
         Err(S5Error::new(ErrorKind::Input, "No username found with this pubkey."))
     }
 }
-
 pub fn get_my_username(social_root: &str) -> Result<String,S5Error> {
     let my_key_pair = ec::keypair_from_xprv_str(social_root).unwrap();
     let my_xonly_pair = ec::XOnlyPair::from_keypair(my_key_pair);
