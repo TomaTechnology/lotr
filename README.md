@@ -51,23 +51,46 @@ cargo run mk delete --username "ishi"
 
 ### Releases
 
-#### Verifying a binary
+### Build from source
+
+Build and copy binary to a bin directory
+
+```bash
+cargo build --release
+chmod +x target/release/lotr
+sudo cp target/release/lotr /usr/local/bin
+```
+
+#### Verifying a github release from toma.tech
+
+All releases have a checksum provided by @i5hi after creating the builds.
+
+Check each respective release for their respective checksum.
 
 MAC
 ```bash
-shasum -a 256 /path/to/lotr
+md5 /path/to/lotr
 ```
 
 LINUX
 ```bash
-sha256sum -a /path/to/lotr
+md5sum /path/to/lotr
 ```
 
-Copy the binary into /usr/local/bin
+Download it.
 
+Copy binary to a bin directory
+
+RUN IT!
+
+```bash
+lotr
+```
 
 ### Local Storage
 
 SledDb creates its database at `~/.lotr`
 
 If you want to purge all your local data, just delete this folder.
+
+After you back up your seed words and your contract, you can safely purge local data without losing access to your funds or social account.
