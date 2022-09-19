@@ -22,12 +22,33 @@ impl AdminInviteResponse{
 }
 pub fn admin_invite(url: &str, admin_secret: &str)->Result<String, S5Error>{
     let full_url = url.to_string() + &APIEndPoint::AdminInvite.to_string();
-    let response: String = ureq::get(&full_url)
+    match ureq::get(&full_url)
         .set(&HttpHeader::AdminInvite.to_string(), admin_secret)
-        .call().unwrap()
-        .into_string().unwrap();
+        .call()
+        {
+            Ok(response)=>  Ok(match AdminInviteResponse::structify(&response.into_string().unwrap()){
+                Ok(result)=>result.invite_code,
+                Err(e) =>{
+                    return Err(e);
+                }
+            }),
+            Err(e)=>{
+                let response = e.into_response().unwrap();
+                let code = response.status();
+                let message = response.status_text();
+                let kind = if code >=400 && code < 500 {
+                    if code == 404 {
+                        ErrorKind::Network
+                    } else {
+                    ErrorKind::Input
+                    }
+                }    else {  
+                    ErrorKind::Internal
+                };
+                return Err(S5Error::new(kind, &message));
+            }
+        }
 
-    Ok(AdminInviteResponse::structify(&response).unwrap().invite_code)
 }
 
 

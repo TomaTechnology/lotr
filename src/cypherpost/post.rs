@@ -210,7 +210,7 @@ mod tests {
     use crate::key::ec;
     use crate::key::seed;
     use crate::key::child;
-    use crate::cypherpost::model;
+    use crate::cypherpost::model::{PlainPost,PostKind,PostItem};
     use crate::key::encryption::{cc20p1305_encrypt, key_hash256};
     use crate::cypherpost::handler::{decrypt_my_posts,decrypt_others_posts};
     use bdk::bitcoin::network::constants::Network;
@@ -270,11 +270,14 @@ mod tests {
         println!("{:#?}", response);
 
         // Create a struct to share
-        let xpub_to_share = model::PlainPost{
-            kind: model::PostKind::Pubkey,
-            label: None,
-            value: "xpubsomesomerands".to_string(),
-        };
+        let xpub_to_share = PlainPost::new(
+            PostKind::Pubkey,
+            None,
+            PostItem::new(
+                Some("xkey".to_string()), "xpubsomesomerands".to_string()
+            )
+        );
+    
         // Json stringify it
         let stringy_xpub = xpub_to_share.stringify().unwrap();
         // Create an encryption key for it using a derivation_scheme from mk

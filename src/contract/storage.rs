@@ -1,6 +1,6 @@
 use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
-use crate::contract::model::{NodeInfo, ContractInfo,ParticipantInfo};
+use crate::contract::model::{NodeInfo, ContractInfo,PolicyInfo};
 
 pub fn create_node_info(prefs: NodeInfo)->Result<bool, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Contract).unwrap();
@@ -72,10 +72,10 @@ pub fn read_contract_info()->Result<ContractInfo, S5Error>{
         }
     }
 }
-pub fn update_builder_info(part_info: ParticipantInfo)->Result<bool, S5Error>{
+pub fn update_depositor_info(part_info: PolicyInfo)->Result<bool, S5Error>{
     match read_contract_info(){
         Ok(mut contract_info)=>{
-            contract_info.builder = part_info;
+            contract_info.depositor = part_info;
             create_contract_info(contract_info).unwrap();
             Ok(true)
         },
@@ -84,10 +84,10 @@ pub fn update_builder_info(part_info: ParticipantInfo)->Result<bool, S5Error>{
         }
     }
 }
-pub fn update_facilitator_info(part_info: ParticipantInfo)->Result<bool, S5Error>{
+pub fn update_beneficiary_info(part_info: PolicyInfo)->Result<bool, S5Error>{
     match read_contract_info(){
         Ok(mut contract_info)=>{
-            contract_info.facilitator = part_info;
+            contract_info.beneficiary = part_info;
             create_contract_info(contract_info).unwrap();
             Ok(true)
         },
@@ -96,7 +96,7 @@ pub fn update_facilitator_info(part_info: ParticipantInfo)->Result<bool, S5Error
         }
     }
 }
-pub fn update_escrow_info(part_info: ParticipantInfo)->Result<bool, S5Error>{
+pub fn update_escrow_info(part_info: PolicyInfo)->Result<bool, S5Error>{
     match read_contract_info(){
         Ok(mut contract_info)=>{
             contract_info.escrow = part_info;

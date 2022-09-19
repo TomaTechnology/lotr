@@ -66,13 +66,37 @@ pub enum PostKind{
     AddressIndex,
     Psbt
 }
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PostItem{
+    pub label : Option<String>,
+    pub value : String,
+}
+
+impl PostItem{
+    pub fn new(label: Option<String>, value: String) -> Self{
+        PostItem{
+            label: label,
+            value: value
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PlainPost{
     pub kind: PostKind,
-    pub label: Option<String>,
-    pub value: String,
+    pub reference: Option<String>,
+    pub item: PostItem,
 }
+impl PlainPost{
+    pub fn new(kind: PostKind, reference: Option<String>, item: PostItem)->Self{
+        PlainPost{
+            kind: kind,
+            reference: reference,
+            item: item
+        }
+    }
+}
+
 impl PlainPost{
     pub fn stringify(&self) -> Result<String, S5Error> {
         match serde_json::to_string(self) {
@@ -156,12 +180,12 @@ mod tests {
 
     #[test]
     fn test_cypherpost_models(){
-        let example  = PlainPost{
-            kind: PostKind::Message,
-            label: None,
-            value: "Yo, I have a secret only for you".to_string()
-        };
-
+        let example  = PlainPost::new(
+            PostKind::Message,None,
+            PostItem::new(
+                Some("msg".to_string()), "Secret just for me!".to_string()
+            )
+        );
         let stringified = example.stringify().unwrap();
         println!("{:#?}",stringified);
     }

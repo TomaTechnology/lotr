@@ -11,7 +11,6 @@ use bitcoin::network::constants::Network;
 mod lib;
 use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind};
-use crate::lib::config;
 
 mod key;
 use crate::key::seed;
@@ -28,7 +27,7 @@ mod contract;
 fn main() {
     let matches = App::new("\x1b[0;92ml✠tr\x1b[0m")
         .about("\x1b[0;94mLeverage ✠f The Remnants\x1b[0m")
-        .version("\x1b[0;1m0.0.1\x1b[0m")
+        .version("\x1b[0;1mv0.1.2\x1b[0m")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("ishi@toma.tech")
         .subcommand(
@@ -87,54 +86,20 @@ fn main() {
                 .subcommand(
                     Command::new("prefs")
                     .about("Set your preferences with cypherpost.")
-                    .display_order(0)
+                    .display_order(0)  
                     .arg(
-                        Arg::with_name("server")
+                        Arg::with_name("update_ds")
                         .takes_value(true)
-                        .short('s')
-                        .long("server")
-                        .help("Base URL of the server to connect to.")
+                        .short('u')
+                        .long("update_ds")
+                        .help("Last Derivation Path Used. The sceheme starts at m/1h/0h. Only use IF you are recovering an account, increment the first path - eg. m/2h/0h or m/3h/0h. This is important to ensure forward secrecy. Its safe to regularly keep incrementing the source of your key derivation.")
                         .required(false)
-                    )
-                    .arg(
-                        Arg::with_name("last_ds")
-                        .takes_value(true)
-                        .short('d')
-                        .long("last_ds")
-                        .help("Last Derivation Scheme Used. Do not set if this is first time usage. The sceheme starts at m/1h/0h. Only use IF you are recovering an account. If unsure of your last scheme, increment the first path - eg. m/2h/0h or m/3h/0h. This is important to ensure forward secrecy.")
-                        .required(false)
-                    )    
-                )
-                .subcommand(
-                    Command::new("invite")
-                    .about("Admin command to generate an invite code for contacts.")
-                    .display_order(8)
+                    ) 
                 )
                 .subcommand(
                     Command::new("join")
                     .about("Register your key as a given username.")
-                    .display_order(1)
-                    .arg(
-                        Arg::with_name("username")
-                        .takes_value(true)
-                        .short('u')
-                        .long("username")
-                        .help("Username to register as.")
-                    )   
-                    .arg(
-                        Arg::with_name("invite")
-                        .takes_value(true)
-                        .short('i')
-                        .long("invite")
-                        .help("Invite code provided by the admin.")
-                    )
-                    .arg_required_else_help(true),  
-                )
-                .subcommand(
-                    Command::new("leave")
-                    .about("Unregister your key and username.")
-                    .display_order(7)
-
+                    .display_order(1) 
                 )
                 .subcommand(
                     Command::new("members")
@@ -144,20 +109,22 @@ fn main() {
                 .subcommand(
                     Command::new("sync")
                     .about("Sync all posts.")
-                    .display_order(4)
+                    .display_order(3)
                 )
                 .subcommand(
                     Command::new("post")
                     .about("Create a post.")
-                    .display_order(3)
-                    .arg(
-                        Arg::with_name("to")
-                        .takes_value(true)
-                        .short('t')
-                        .long("to")
-                        .help("Comma separated list of recipients")
-                    )
-                    .arg_required_else_help(true),
+                    .display_order(4)
+                )
+                .subcommand(
+                    Command::new("leave")
+                    .about("Unregister your key and username.")
+                    .display_order(7)
+                )
+                .subcommand(
+                    Command::new("invite")
+                    .about("ADMIN command to generate an invite code for contacts.")
+                    .display_order(8)
                 )
 
         )
@@ -275,9 +242,9 @@ fn main() {
                             }
                             else{
                                 println!("===============================================");
-                                println!("{:#?}",e);
+                                println!("ERROR::{}",e.message);
                                 println!("===============================================");
-                                panic!("500");                                
+                                return;                              
                             }
                         }
                     };
@@ -357,9 +324,9 @@ fn main() {
                             }
                             else{
                                 println!("===============================================");
-                                println!("{:#?}",e);
+                                println!("ERROR::{}",e.message);
                                 println!("===============================================");
-                                panic!("500");                                }
+                                return;                              }
                         }
                     };
 
@@ -451,9 +418,9 @@ fn main() {
                         }
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");                                
+                            return;                              
                         }
                     }
 
@@ -467,7 +434,7 @@ fn main() {
                         println!("===============================================");
                         println!("COULD NOT DELETE MASTER KEY DATABASE!");
                         println!("===============================================");
-                        panic!("500");  
+                        return;
                     }
 
                 }
@@ -479,14 +446,16 @@ fn main() {
             match service_matches.subcommand() {
                 Some(("prefs", sub_matches)) => {
                     let matches =  &sub_matches.clone();
-                    let server = matches.value_of("server");
-                    let last_ds = matches.value_of("last_ds");
+                    let last_ds = matches.value_of("update_ds").unwrap_or("");
 
+                    print!("Server Location: ");
+                    let server: String = read!("{}\n");
+                    
                     let prefs = match cypherpost::storage::read_prefs(){
                         Ok(mut result)=>{
                             //prefs exist
                             result.server = match server {
-                                Some(value)=>{
+                                value=>{
                                     if value.to_string().starts_with("local") {
                                         value.to_string() + ":3021"
                                     }
@@ -498,15 +467,17 @@ fn main() {
                                     }
                                     else{
                                         value.to_string()
-                                    }
-                                    
+                                    }  
                                 },
-                                None=>result.server
                             };
-                            result.last_ds = match last_ds{
-                                Some(value)=>value.to_string(),
-                                None=>result.last_ds
-                            };
+                            if last_ds != "" {
+                                // verify last_ds is a valid path
+                                result.last_ds = last_ds.to_string();
+                            }
+                            else{
+                                result.last_ds = result.last_ds;
+                            }
+                        
                             result
 
                         },
@@ -514,17 +485,30 @@ fn main() {
                             // no prefs set
                             cypherpost::model::ServerPreferences{
                                 server: match server {
-                                    Some(value)=>value.to_string(),
-                                    None=>"localhost:3021".to_string()
+                                    value=>{
+                                        if value != "" {
+                                            value.to_string()
+                                        }
+                                        else{
+                                            "localhost:3021".to_string()
+                                        }
+                                    },
                                 },
                                 last_ds: match last_ds{
-                                    Some(value)=>value.to_string(),
-                                    None=>"m/1h/0h".to_string()
+                                    value=>{
+                                        if value != "" {
+                                            value.to_string()
+                                        }
+                                        else{
+                                            "m/1h/0h".to_string()
+                                        }
+                                    },
                                 }
                             }
 
                         }
                     };
+
                     match cypherpost::storage::create_prefs(prefs.clone()){
                         Ok(result)=>{
                             if result {
@@ -543,9 +527,9 @@ fn main() {
                         }
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");                                
+                            return;                              
                         }
                     }
                 }
@@ -556,9 +540,9 @@ fn main() {
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
                             println!("USE lotr network prefs --server <SERVER_URL>");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");  
+                            return;
                         } 
                     };
                     let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);                    
@@ -573,28 +557,25 @@ fn main() {
                         }
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");                                
                         }
                     }
                 }
-                Some(("join", sub_matches)) => {
-                    let matches =  &sub_matches.clone();
+                Some(("join", _)) => {
                     let prefs = match cypherpost::storage::read_prefs(){
                         Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
                             println!("USE lotr chat prefs --server <SERVER_URL>");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");  
+                            return
                         } 
                     };
                     let server =prefs.server_url_parse(cypherpost::model::ServerKind::Standard);
-                    let username = matches.value_of("username").unwrap();
-                    let invite_code = matches.value_of("invite").unwrap();
+
 
                     print!("Enter password to decrypt your key: ");
                     std::io::stdout().flush().unwrap();
@@ -604,15 +585,21 @@ fn main() {
                         Ok(keys)=>keys.decrypt(&password),
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");   
+                            return; 
                         }
                     };
 
                     let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
 
-                    match identity::register(&server, key_pair, invite_code, username){
+                    print!("Enter your invite code: ");
+                    std::io::stdout().flush().unwrap();
+                    let invite_code = read_password().unwrap();   
+                    print!("Choose a username (min 3-12 characters letters and numbers only): ");
+                    let username: String = read!("{}\n");
+
+                    match identity::register(&server, key_pair, &invite_code, &username){
                         Ok(result)=>{
                             if result.status{
                                 println!("===============================================");
@@ -627,9 +614,8 @@ fn main() {
                         }
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");                                
                         }
                     }
                 }
@@ -640,9 +626,9 @@ fn main() {
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
                             println!("USE lotr chat prefs --server <SERVER_URL>");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");  
+                            return;
                         } 
                     };      
                     let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);
@@ -654,9 +640,9 @@ fn main() {
                         Ok(keys)=>keys.decrypt(&password),
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");   
+                            return; 
                         }
                     };
 
@@ -676,9 +662,8 @@ fn main() {
                         }
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");                                
                         }
                     }
                 }
@@ -689,9 +674,9 @@ fn main() {
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
                             println!("USE lotr chat prefs --server <SERVER_URL>");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");  
+                            return;
                         } 
                     };
                     let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);                    
@@ -702,9 +687,9 @@ fn main() {
                         Ok(keys)=>keys.decrypt(&password),
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");   
+                            return; 
                         }
                     };
 
@@ -725,33 +710,29 @@ fn main() {
                                 }
                                 Err(e)=>{
                                     println!("===============================================");
-                                    println!("{:#?}",e);
+                                    println!("ERROR::{}",e.message);
                                     println!("===============================================");
-                                    panic!("500"); 
                                 }
                             }
                         }
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");                                
                         }
                     }
                 }
-                Some(("post", sub_matches)) => {
-                    let matches =  &sub_matches.clone();
-                    let to = matches.value_of("to").unwrap();
-                    let to: Vec<String> = to.split(",").map(|s| s.to_string()).collect();
+                Some(("post", _)) => {
+
                     let prefs = match cypherpost::storage::read_prefs(){
                         Ok(value)=>value,
                         Err(e)=>{
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
                             println!("USE lotr chat prefs --server <SERVER_URL>");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");  
+                            return;
                         } 
                     };
                     let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);                    
@@ -763,20 +744,24 @@ fn main() {
                         Ok(keys)=>keys.decrypt(&password),
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");   
+                            return; 
                         }
                     };
 
-                    print!("Type your message: ");
+                    print!("To (multiple,recipients,serpated,bya,comma): ");
+                    let to: String = read!("{}\n");
+                    let to: Vec<String> = to.split(",").map(|s| s.to_string().replace(" ", "")).collect();
+
+                    print!("Message: ");
                     let message: String = read!("{}\n");
                     let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
-                    let post = cypherpost::model::PlainPost{
-                        kind: cypherpost::model::PostKind::Message,
-                        label: None,
-                        value: message
-                    };
+                    let post = cypherpost::model::PlainPost::new(
+                        cypherpost::model::PostKind::Message,
+                        None,
+                        cypherpost::model::PostItem::new(None,message)
+                    );
 
                     let recipients:Vec<cypherpost::model::CypherpostIdentity> = match cypherpost::storage::read_all_contacts(){
                         Ok(result)=>{
@@ -788,14 +773,14 @@ fn main() {
                         }
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500"); 
+                            return;
                         }
                     };
 
                     let ds_and_cypherpost = cypherpost::handler::create_cypherjson( &keys.social,post).unwrap();
-                    let decryption_keys = cypherpost::handler::create_decryption_keys( &keys.social, &ds_and_cypherpost.0, recipients).unwrap();
+                    let decryption_keys = cypherpost::handler::create_decryption_keys(&keys.social, &ds_and_cypherpost.0, recipients).unwrap();
                     let cpost_req = cypherpost::post::CypherPostRequest::new(0, &ds_and_cypherpost.0, &ds_and_cypherpost.1);
                     let post_id = cypherpost::post::create(&server, key_pair,cpost_req).unwrap();
                     let result = cypherpost::post::keys(&server, key_pair, &post_id, decryption_keys).unwrap();
@@ -816,9 +801,9 @@ fn main() {
                             println!("===============================================");
                             println!("SERVER URL NOT SET!");
                             println!("USE lotr chat prefs --server <SERVER_URL>");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");  
+                            return;
                         } 
                     };
                     let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);
@@ -829,9 +814,9 @@ fn main() {
                         Ok(keys)=>keys.decrypt(&password),
                         Err(e)=>{
                             println!("===============================================");
-                            println!("{:#?}",e);
+                            println!("ERROR::{}",e.message);
                             println!("===============================================");
-                            panic!("500");   
+                            return; 
                         }
                     };
 
@@ -844,7 +829,7 @@ fn main() {
                     let others_posts = cypherpost::post::others_posts(&server, key_pair).unwrap();
                     let all_posts = cypherpost::handler::update_and_organize_posts(my_posts, others_posts, &keys.social).unwrap();
                     for post in all_posts.into_iter(){
-                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.value);
+                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&post.owner).unwrap(), post.plain_post.item.value);
                     }
                     loop {
                         match socket.read_message(){
@@ -853,11 +838,11 @@ fn main() {
                                     let cypherpost_single = cypherpost::post::single_post(&server, key_pair, &msg.to_string()).unwrap();
                                     if cypherpost_single.clone().decryption_key.is_some(){
                                         let plain_post = cypherpost::handler::decrypt_others_posts([cypherpost_single].to_vec(), &keys.social).unwrap();
-                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.item.value);
                                     }
                                     else{
                                         let plain_post = cypherpost::handler::decrypt_my_posts([cypherpost_single].to_vec(), &keys.social).unwrap();
-                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.value);
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", cypherpost::handler::get_username_by_pubkey(&plain_post[0].owner).unwrap(), plain_post[0].plain_post.item.value);
                                     }
                                 }
                                 else{
@@ -883,6 +868,120 @@ fn main() {
         Some(("contract", service_matches))=>{
             match service_matches.subcommand() {
                 Some(("init", _)) => {
+                    let prefs = match cypherpost::storage::read_prefs(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            println!("===============================================");
+                            println!("SERVER URL NOT SET!");
+                            println!("USE lotr chat prefs --server <SERVER_URL>");
+                            println!("ERROR::{}",e.message);
+                            println!("===============================================");
+                            return;
+                        } 
+                    };
+                    let server = prefs.server_url_parse(cypherpost::model::ServerKind::Standard);   
+                    println!("==============================================="); 
+                    println!("CONTRACT POLICY: {}", contract::model::CONTRACT);
+                    println!("You will now be promted to name the members of your contract. Use usernames of members set on your network:");
+                    println!("===============================================");
+                    print!("Enter password to decrypt your key: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();
+                    let keys = match key::storage::read(){
+                        Ok(keys)=>keys.decrypt(&password),
+                        Err(e)=>{
+                            println!("===============================================");
+                            println!("ERROR::{}",e.message);
+                            println!("===============================================");
+                            return; 
+                        }
+                    };
+
+                    let key_pair = ec::keypair_from_xprv_str(&keys.social).unwrap();
+                    let members: Vec<String> = match identity::get_all(&server, key_pair){
+                        Ok(identities)=>{
+                            match cypherpost::storage::create_contacts(identities.clone()){
+                                Ok(_)=>{
+                                    println!("===============================================");
+                                    println!("MEMBERS");
+                                    println!("===============================================");
+
+                                    let usernames: Vec<String> = identities.into_iter().map(|id| {
+                                        println!("\x1b[0;92m{}\x1b[0m", id.username);
+                                        id.username
+                                    }).collect();
+                                    println!("===============================================");
+                                    usernames
+                                }
+                                Err(e)=>{
+                                    println!("===============================================");
+                                    println!("ERROR::{}",e.message);
+                                    println!("===============================================");
+                                    return; 
+                                }
+                            }
+                        }
+                        Err(e)=>{
+                            println!("===============================================");
+                            println!("ERROR::{}",e.message);
+                            println!("===============================================");
+                            return;                              
+                        }
+                    };
+
+                    print!("Depositor(D): ");
+                    let depositor: String = read!("{}\n");
+                    print!("Beneficiary(F): ");
+                    let beneficiary: String = read!("{}\n");
+                    print!("Escrow(E): ");
+                    let escrow: String = read!("{}\n");
+                    print!("Insurer(I): ");
+                    let insurer: String = read!("{}\n");
+                    print!("Timelock Value(T) in years: ");
+                    let time : String = read!("{}\n"); 
+                    let time_in_blocks  = time.parse::<u64>().unwrap() * 365 * 24 * 6;
+                    
+                    let contract_named = contract::model::CONTRACT
+                        .replace("D", &depositor)
+                        .replace("B",&beneficiary)
+                        .replace("E", &escrow)
+                        .replace("I", &insurer)
+                        .replace("T", &time_in_blocks.to_string());
+
+                    let valid_members = members.contains(&depositor) && members.contains(&beneficiary) && members.contains(&escrow);
+                    let my_username = cypherpost::handler::get_my_username(&keys.social).unwrap();
+                    let whoami = if my_username == depositor{
+                        "Depositor"
+                    }
+                    else if my_username == beneficiary {
+                        "Beneficiary"
+                    }
+                    else if my_username == escrow {
+                        "Escrow"
+                    }
+                    else {
+                        println!("===============================================");
+                        println!("You must be a participant in the contract!");
+                        println!("===============================================");
+                        return; 
+                    };
+
+                    if valid_members {
+                        println!("===============================================");
+                        println!("Members are valid!");
+                        println!("Forwarding contract initialization request.");
+                        println!("NAMED POLICY: {}", contract_named);
+                        println!("===============================================");
+                    }
+                    else {
+                        println!("===============================================");
+                        println!("Invalid Members!");
+                        println!("===============================================");
+                        return;                              
+                    }
+
+                    println!("YOUR ROLE: {}", whoami);
+                    
                 }
                 Some(("info", _)) => {
                 }
@@ -907,27 +1006,24 @@ fn main() {
             let title = "Leverage ✠f The Remnants";
             let subtitle = "A bitcoin contract co-ordination tool.";
             let p1 = "The 'lotr' tool contains 3 primary commands: key, network and contract.";
-            let p2 = "Start by creating a key pair using the generate sub-command. This command will print your seed onto the screen.\n";
-            let p3 = "If you want a higher level of security, create your seed on a device like a cold card and use the import sub-command instead which will not print to screen but requires typing your seed. You can confirm you typed the right seed by verifying the fingerprint.";
-            let p4 = "Your seed words are not saved to the disk; only root xprvs are saved. So make sure you have physical backups of your mnemonics.";
-            let p5 = "You must set a password to encrypt your keys at rest. We recommend writing this password down too.";
-            let p6 = "The next step is to setup preferences for a cypherpost network server using the prefs sub-command with --server argument.\n";
-            let p7 = "Initially only set a value for --server. last_ds is only required when you are recovering an old account.\nNOTE: network commands will not work without a server being set.";
-            let p8 = "If you are the admin; use adminvite to generate invite codes for other users.";
-            let p9 = "After an admin gives you an invite code, use it with the register sub-command.";
-            let p10 = "After registering you can view others on the server using the contacts sub-command.";
-            let p11 = "You can then post to other users and sync to get all posts related to you.";
+           
+            let p2 = "Start by creating a key pair using the generate sub-command.\n";
+            let p3 = "Your keys are encrypted on your system with a password you set. This password will be required for many critical operations.\n";
+
+            let p6 = "The next step is to setup preferences. Primarily set the url for a cypherpost network server; using the prefs sub-command.\n";
+            let p8 = "If you are the admin; use invite to generate invite codes for other users. Ask an admin for an invite code if not.\n";
+            let p9 = "After you aquire an invite code, use it with the join sub-command.\n";
+            let p10 = "After joining you can view others on the server using the members sub-command.\n";
+            let p11 = "You can then use the sync sub-command to open a message stream and the post sub-command to message other members.\n";
+
             println!("\x1b[93;1m{}\x1b[0m", title);
             println!("{}", subtitle);
             println!("{}", p1);
             println!("\x1b[92;1mkey\x1b[0m",);
             println!("{}", p2);
             println!("{}", p3);
-            println!("{}", p4);
-            println!("{}", p5);
             println!("\x1b[92;1mnetwork\x1b[0m",);
             println!("{}", p6);
-            println!("{}", p7);
             println!("{}", p8);
             println!("{}", p9);
             println!("{}", p10);

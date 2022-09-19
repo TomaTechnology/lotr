@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-const CONTRACT : &str = "thresh(1, thresh(2,B,F,E), thresh(2,thresh(1,B1,F1), after(T)))";
+pub const CONTRACT : &str = "thresh(1, thresh(2,D,B,E), thresh(2,I,after(T)))";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeInfo{
@@ -17,66 +17,100 @@ impl NodeInfo {
     }
 }
 
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PolicyInfo{
+    name: String,
+    thresh: usize,
+    conditions: Option<Vec<String>>,
+}
+impl PolicyInfo {
+    pub fn new(name: &str, thresh: usize, conditions: Option<Vec<String>>)->Self{
+        PolicyInfo{
+            name: name.to_string(),
+            thresh: thresh,
+            conditions: conditions,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContractInfo{
     pub name: String,
-    pub builder: ParticipantInfo,
-    pub facilitator: ParticipantInfo,
-    pub escrow: ParticipantInfo,
+    pub depositor: PolicyInfo,
+    pub beneficiary: PolicyInfo,
+    pub escrow: PolicyInfo,
+    pub insurance: PolicyInfo,
     pub timelock: Option<u64>,
     pub public_policy: Option<String>
 }
+
 impl ContractInfo {
-    pub fn new(name: &str, builder: &str, facilitator: &str, escrow: &str)->Self{
+    pub fn new(name: &str, depositor: &str, beneficiary: &str, escrow: &str, insurance: &str)->Self{
         ContractInfo{
             name: name.to_string(),
-            builder: ParticipantInfo::new(builder),
-            facilitator: ParticipantInfo::new(facilitator),
-            escrow: ParticipantInfo::new(escrow),
+            depositor: PolicyInfo::new(depositor, 1,None),
+            beneficiary: PolicyInfo::new(beneficiary,1,None),
+            escrow: PolicyInfo::new(escrow,1,None),
+            insurance: PolicyInfo::new(insurance,1,None),
             timelock: None,
             public_policy: None
         }
     }
-    pub fn update_builder_xpub(&mut self, xpub: &str)->Self{
-        self.builder.update_xpub(xpub.to_string());
-        self.clone()
+    pub fn push_depositor_xpub(&mut self, xpub: &str)->Self{
+        match self.depositor.conditions {
+            Some(ref mut conditions) => {
+                if conditions.len() > self.depositor.thresh {
+                    self.clone()
+                }
+                else {
+                    conditions.push(xpub.to_string());
+                    self.clone()
+                }
+            }
+            None => {
+                self.depositor.conditions = Some(vec![xpub.to_string()]);
+                self.clone()
+            }
+        }
     }
-    pub fn update_builder_ms_xpub(&mut self, xpub: &str)->Self{
-        self.builder.update_ms_xpub(xpub.to_string());
-        self.clone()
+    pub fn push_beneficiary_xpub(&mut self, xpub: &str)->Self{
+        
+        match self.clone().beneficiary.conditions{
+            Some(ref mut conditions) => {
+                if conditions.len() > self.clone().beneficiary.thresh {
+                    self.clone()
+                }
+                else {
+                    conditions.push(xpub.to_string());
+                    self.clone()
+                }
+            }
+            None => {
+                self.beneficiary.conditions = Some(vec![xpub.to_string()]);
+                self.clone()
+            }
+        }
     }
-    pub fn update_facilitator_xpub(&mut self, xpub: &str)->Self{
-        self.facilitator.update_xpub(xpub.to_string());
-        self.clone()
-    }
-    pub fn update_facilitator_ms_xpub(&mut self, xpub: &str)->Self{
-        self.facilitator.update_xpub(xpub.to_string());
-        self.clone()
-    }
-    pub fn update_escrow_xpub(&mut self, xpub: &str)->Self{
-        self.escrow.update_xpub(xpub.to_string());
-        self.clone()
-    }
+
     pub fn update_timelock(&mut self, timelock: u64)->Self{
         self.timelock= Some(timelock);
         self.clone()
     }
     pub fn is_ready(&self)->bool{
-        self.builder.xpub.is_some() && 
-        self.builder.ms_xpub.is_some() &&
-        self.facilitator.xpub.is_some() && 
-        self.facilitator.ms_xpub.is_some() &&
-        self.escrow.xpub.is_some() && 
-        self.timelock.is_some()
+        self.depositor.conditions.is_some() && 
+            self.beneficiary.conditions.is_some() && 
+            self.escrow.conditions.is_some() && 
+            self.insurance.conditions.is_some() && 
+            self.timelock.is_some()
     }
     pub fn update_public_policy(&mut self)->Result<Self, bool>{
         if self.is_ready(){
             let policy = CONTRACT.clone().to_string()
-                .replace("B", &self.clone().builder.xpub.unwrap())
-                .replace("F", &self.clone().facilitator.xpub.unwrap())
-                .replace("E", &self.clone().escrow.xpub.unwrap())
-                .replace("B1", &self.clone().builder.ms_xpub.unwrap())
-                .replace("F1", &self.clone().facilitator.ms_xpub.unwrap())
+                .replace("B", &self.clone().depositor.conditions.unwrap().pop().unwrap())
+                .replace("F", &self.clone().beneficiary.conditions.unwrap().pop().unwrap())
+                .replace("E", &self.clone().escrow.conditions.unwrap().pop().unwrap())
+                .replace("I", &self.clone().insurance.conditions.unwrap().pop().unwrap())
                 .replace("T", &self.timelock.unwrap().to_string());
             self.public_policy = Some(policy.to_string());
             Ok(self.clone())
@@ -87,29 +121,5 @@ impl ContractInfo {
     }
     pub fn is_complete(&self)->bool{
         self.public_policy.is_some()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ParticipantInfo{
-    name: String,
-    xpub: Option<String>,
-    ms_xpub: Option<String>
-}
-impl ParticipantInfo {
-    pub fn new(name: &str)->Self{
-        ParticipantInfo{
-            name: name.to_string(),
-            xpub: None,
-            ms_xpub: None
-        }
-    }
-    pub fn update_xpub(&mut self, xpub: String)->Self{
-        self.xpub = Some(xpub);
-        self.clone()
-    }
-    pub fn update_ms_xpub(&mut self, ms_xpub: String)->Self{
-        self.ms_xpub = Some(ms_xpub);
-        self.clone()
     }
 }

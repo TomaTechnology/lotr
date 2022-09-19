@@ -46,7 +46,6 @@ pub fn cc20p1305_decrypt(ciphertext:&str, key: &str)->Result<String,S5Error>{
     }
 }
 
-
 #[cfg(test)]
 mod tests {
   use super::*;

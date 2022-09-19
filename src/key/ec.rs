@@ -9,7 +9,7 @@ use bdk::bitcoin::util::bip32::ExtendedPrivKey;
 use crate::lib::e::{ErrorKind, S5Error};
 
 /// FFI Output
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct XOnlyPair {
   pub seckey: String,
   pub pubkey: String,

@@ -2,10 +2,11 @@ use crate::key::ec;
 use secp256k1::{KeyPair};
 use crate::lib::e::{S5Error,ErrorKind};
 use crate::cypherpost;
-use crate::cypherpost::model::{CypherPostModel,PlainPostModel,PlainPost,DecryptionKey,CypherpostIdentity};
+use crate::cypherpost::model::{CypherPostModel,PlainPostModel,PlainPost,DecryptionKey,CypherpostIdentity,PostItem,PostKind};
 use crate::key;
 use crate::key::child;
 use crate::key::encryption::{key_hash256,cc20p1305_decrypt,cc20p1305_encrypt};
+use serde::{Deserialize, Serialize};
 
 pub enum HttpMethod{
     Get,
@@ -71,6 +72,22 @@ impl APIEndPoint{
         }
     }
 }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ErrorResponse {
+    pub code: i32,
+    pub message: String,
+}
+
+impl ErrorResponse{
+    pub fn structify(stringified: &str) -> Result<ErrorResponse, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying ErrorResponse"))
+            }
+        }
+    }
+}
 
 pub fn sign_request(key_pair: KeyPair, method: HttpMethod, endpoint: APIEndPoint, nonce: &str)-> Result<String, S5Error>{
     let message = method.to_string() + " " + &endpoint.to_string() + " " + nonce;
@@ -119,11 +136,15 @@ pub fn create_decryption_keys(social_root: &str, derivation_scheme: &str, recipi
     Ok(decryption_keys)
 }
 
-pub fn decrypt_my_posts(my_posts: Vec<CypherPostModel>, social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
-    Ok(my_posts.into_iter().map(|cypherpost|{
-        let decryption_key_root = child::to_path_str(social_root, &cypherpost.derivation_scheme).unwrap();
-        let decryption_key = key_hash256(&decryption_key_root.xprv);
-        let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key).unwrap();
+pub fn decrypt_others_posts(others_posts: Vec<CypherPostModel>, social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
+    Ok(others_posts.into_iter().map(|cypherpost|{
+        let my_key_pair = ec::keypair_from_xprv_str(social_root).unwrap();
+        let my_xonly_pair = ec::XOnlyPair::from_keypair(my_key_pair);
+        let shared_secret = ec::compute_shared_secret_str(&my_xonly_pair.seckey, &cypherpost.owner).unwrap();
+        let decryption_key = cc20p1305_decrypt(&cypherpost.decryption_key.unwrap(), &shared_secret).unwrap_or("Bad Key".to_string());
+        let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key)
+        .unwrap_or(PlainPost::new(PostKind::Message, None, PostItem::new(None, "Decryption Error".to_string())).stringify().unwrap());
+
         PlainPostModel{
             id: cypherpost.id,
             genesis: cypherpost.genesis,
@@ -134,15 +155,13 @@ pub fn decrypt_my_posts(my_posts: Vec<CypherPostModel>, social_root: &str)->Resu
         }
     }).collect())
 }
-
-pub fn decrypt_others_posts(others_posts: Vec<CypherPostModel>, social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
-    Ok(others_posts.into_iter().map(|cypherpost|{
-        let my_key_pair = ec::keypair_from_xprv_str(social_root).unwrap();
-        let my_xonly_pair = ec::XOnlyPair::from_keypair(my_key_pair);
-        let shared_secret = ec::compute_shared_secret_str(&my_xonly_pair.seckey, &cypherpost.owner).unwrap();
-        let decryption_key = cc20p1305_decrypt(&cypherpost.decryption_key.unwrap(), &shared_secret).unwrap();
-        let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key).unwrap();
-
+pub fn decrypt_my_posts(my_posts: Vec<CypherPostModel>, social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
+    Ok(my_posts.into_iter().map(|cypherpost|{
+        let decryption_key_root = child::to_path_str(social_root, &cypherpost.derivation_scheme).unwrap();
+        let decryption_key = key_hash256(&decryption_key_root.xprv);
+        let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key)
+        .unwrap_or(PlainPost::new(PostKind::Message, None, PostItem::new(None, "Decryption Error".to_string())).stringify().unwrap());
+        
         PlainPostModel{
             id: cypherpost.id,
             genesis: cypherpost.genesis,
@@ -173,13 +192,22 @@ pub fn get_username_by_pubkey(pubkey: &str)->Result<String,S5Error>{
         Err(S5Error::new(ErrorKind::Input, "No username found with this pubkey."))
     }
 }
+
+pub fn get_my_username(social_root: &str) -> Result<String,S5Error> {
+    let my_key_pair = ec::keypair_from_xprv_str(social_root).unwrap();
+    let my_xonly_pair = ec::XOnlyPair::from_keypair(my_key_pair);
+    get_username_by_pubkey(&my_xonly_pair.pubkey)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::key::ec;
     use crate::key::seed;
     use bitcoin::network::constants::Network;
-    // use crate::cypherpost::model::{PostKind};
+    use crate::cypherpost::model::{PostKind};
+    use secp256k1::rand::{thread_rng,Rng};
+    use crate::cypherpost::model::{PostItem};
 
     #[test]
     fn test_sign_cp_request(){
@@ -191,15 +219,56 @@ mod tests {
         assert!(verification);
     }
     #[test]
-    fn test_create_post_and_keys(){
-        // let post = PlainPost {
-        //     kind: PostKind::Message,
-        //     label: None,
-        //     value: "THIS IS IT!".to_string(),
-        // };
-        // let recipient = 
-        // let result = get_and_update_last_ds();
-        // println!("{}",result);
+    fn test_encrypt_decrypt(){
+        let social_root_scheme = "m/128h/0h";
+
+        let mut rng = thread_rng();
+        let random = rng.gen::<u64>();
+        let random_string = random.to_string();
+
+        let seed1 = seed::generate(24, "", Network::Bitcoin).unwrap();
+        let social_child1 = child::to_path_str(&seed1.xprv, social_root_scheme).unwrap();
+        let key_pair1 = ec::keypair_from_xprv_str(&social_child1.xprv).unwrap();
+        let xonly_pair1 = ec::XOnlyPair::from_keypair(key_pair1);
+
+        let message_1_to_2 = "hi there".to_string();
+        let post_1_to_2 = PlainPost::new(
+            PostKind::Message,
+            None,
+            PostItem::new(
+                Some("msg".to_string()), message_1_to_2
+            )
+        );
+    
+        let cp_1_to_2 = create_cypherjson(&social_child1.xprv, post_1_to_2.clone()).unwrap();
+
+        let seed2 = seed::generate(24, "", Network::Bitcoin).unwrap();
+        let social_child2 = child::to_path_str(&seed2.xprv, social_root_scheme).unwrap();
+        let key_pair2 = ec::keypair_from_xprv_str(&social_child2.xprv).unwrap();
+        let xonly_pair2 = ec::XOnlyPair::from_keypair(key_pair2);
+        let user2 = "facilitator".to_string() + &random_string[0..3];
+        let cp_id = CypherpostIdentity{
+            username: user2,
+            pubkey: xonly_pair2.clone().pubkey
+        };
+
+        let decryption_keys = create_decryption_keys(&social_child1.xprv, &cp_1_to_2.0,[cp_id].to_vec()).unwrap();
+
+        let cpmodel = cypherpost::model::CypherPostModel{
+            id: "not_important".to_string(),
+            genesis: 2389283,
+            expiry: 0,
+            owner: xonly_pair1.pubkey,
+            cypher_json: cp_1_to_2.1,
+            derivation_scheme: cp_1_to_2.0,
+            edited : false,
+            decryption_key: Some(decryption_keys.clone().pop().unwrap().decryption_key)
+        };
+
+        let plain_model = decrypt_others_posts([cpmodel].to_vec(), &social_child2.xprv).unwrap();
+
+        assert_eq!(plain_model.clone().pop().unwrap().plain_post.item.value,post_1_to_2.item.value);
+
     }
 
 }

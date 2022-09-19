@@ -277,7 +277,6 @@ pub fn _check_client(network: Network, node_address: &str) -> Result<bool, S5Err
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::config::WalletConfig;
   use bdk::blockchain::Blockchain;
   #[test]
   fn test_default_electrum_config() {
