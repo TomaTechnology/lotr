@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use crate::lib::e::{S5Error,ErrorKind};
+use crate::key;
 
 pub enum ServerKind{
     Standard,
@@ -64,7 +65,7 @@ pub enum PostKind{
     Message,
     Pubkey,
     AddressIndex,
-    Psbt
+    Psbt,
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PostItem{
@@ -85,15 +86,32 @@ impl PostItem{
 pub struct PlainPost{
     pub kind: PostKind,
     pub reference: Option<String>,
+    pub signature : Option<String>,
     pub item: PostItem,
 }
 impl PlainPost{
-    pub fn new(kind: PostKind, reference: Option<String>, item: PostItem)->Self{
+    pub fn new(kind: PostKind, reference: Option<String>,  item: PostItem)->Self{
         PlainPost{
             kind: kind,
             reference: reference,
+            signature: None,
             item: item
         }
+    }
+
+    pub fn to_cypher(&self, social_root: &str, derivation: &str)->String{
+        let enc_source = key::child::to_path_str(social_root, derivation).unwrap().xprv;
+        let encryption_key  = key::encryption::key_hash256(&enc_source);
+        let cypher = key::encryption::cc20p1305_encrypt(&self.stringify().unwrap(), &encryption_key).unwrap();
+        cypher
+    }
+
+    pub fn sign(&mut self, social_root: &str)->PlainPost{
+        let message = self.clone().reference.unwrap_or("None".to_string()) + " " + &self.clone().item.label.unwrap_or("None".to_string()) + " " + &key::encryption::nonce();
+        let keypair = key::ec::keypair_from_xprv_str(&social_root).unwrap();
+        let signature = key::ec::schnorr_sign(&message, keypair). unwrap();
+        self.signature = Some(signature.to_string());
+        self.clone()
     }
 }
 

@@ -760,7 +760,7 @@ fn main() {
                     let post = cypherpost::model::PlainPost::new(
                         cypherpost::model::PostKind::Message,
                         None,
-                        cypherpost::model::PostItem::new(None,message)
+                        cypherpost::model::PostItem::new(None, message)
                     );
 
                     let recipients:Vec<cypherpost::model::CypherpostIdentity> = match cypherpost::storage::read_all_contacts(){

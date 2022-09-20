@@ -14,18 +14,22 @@ pub fn key_hash256(key: &str)->String{
     hex::encode(result)
 }
 
+pub fn nonce()->String{
+  let mut rng = thread_rng();
+  let random = rng.gen::<u64>();
+  let mut random_string = random.to_string();
+  random_string.pop();
+  random_string.pop();
+  let random_bytes = random_string.as_bytes();
+  base64::encode(random_bytes)
+}
+
 pub fn cc20p1305_encrypt(plaintext:&str, key: &str)->Result<String,S5Error>{
     let formatted = key_hash256(key);
     let shortened = formatted.as_str()[..32].as_bytes();
     let encryption_key = Key::from_slice(shortened);
     let aead = XChaCha20Poly1305::new(encryption_key);
-    let mut rng = thread_rng();
-    let random = rng.gen::<u64>();
-    let mut random_string = random.to_string();
-    random_string.pop();
-    random_string.pop();
-    let random_bytes = random_string.as_bytes();
-    let nonce = &base64::encode(random_bytes); 
+    let nonce = nonce();
     let nonce = XNonce::from_slice(nonce.as_bytes()); 
     let ciphertext = aead.encrypt(nonce, plaintext.as_bytes()).expect("encryption failure!");
     Ok(format!("{}:{}",base64::encode(nonce),base64::encode(&ciphertext)))

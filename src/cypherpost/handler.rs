@@ -94,6 +94,7 @@ pub fn sign_request(key_pair: KeyPair, method: HttpMethod, endpoint: APIEndPoint
     let signature = ec::schnorr_sign(&message, key_pair).unwrap();
     return Ok(signature.to_string());
 }
+
 fn get_and_update_last_ds()->String{
     let mut prefs: ServerPreferences = cypherpost::storage::read_prefs().unwrap_or(ServerPreferences{
         last_ds: "m/1h/0h".to_string(),
@@ -114,6 +115,7 @@ fn get_and_update_last_ds()->String{
 
 }
 
+// MOVED TO PlainPost METHOD
 pub fn create_cypherjson(social_root: &str, post: PlainPost)->Result<(String,String),S5Error>{
     let ds = get_and_update_last_ds();
     let enc_source = key::child::to_path_str(social_root, &ds).unwrap().xprv;
@@ -121,6 +123,7 @@ pub fn create_cypherjson(social_root: &str, post: PlainPost)->Result<(String,Str
     let cypher_json = cc20p1305_encrypt(&post.stringify().unwrap(), &encryption_key).unwrap();
     Ok((ds,cypher_json))
 }
+
 pub fn create_decryption_keys(social_root: &str, derivation_scheme: &str, recipients: Vec<CypherpostIdentity>)->Result<Vec<DecryptionKey>,S5Error>{
     let enc_source = key::child::to_path_str(social_root, &derivation_scheme).unwrap().xprv;
     let encryption_key  = key_hash256(&enc_source);
