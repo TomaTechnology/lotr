@@ -9,7 +9,7 @@ The server side data model is minimal and the client's are tasked with Data Mode
 `cypher` with some additional metadata is stored on the server as follows:
 
 ```rust
-CypherPost{
+ServerPostModel{
     id: String,
     genesis: u64,
     expiry: u64,
@@ -34,82 +34,114 @@ CypherPost{
 
 - cypher: 
     Encrypted stringified json data model 
-
+    
+    It is meant for the recipient to verify the checksum of their decrypted payload.
    
 ## Client model
 
 When making a `post` to the server, the client first constructs a Post type - then stringifies it and encrypts it as `cypher`.
 
-When retreiving a CypherPost from the server, the client decrypts its `cypher` and creates a PlainPost to store and use locally.
+When retreiving the ServerPostModel, the client decrypts its `cypher` and creates a LocalPostModel to store and use locally.
 
-At the top most level, a PlainPost is the same as the CypherPost, with `post` instead of `cypher`.
+At the top most level, a LocalPostModel is the same as the ServerPostModel, with `post` instead of `cypher`.
 
 Post data contained under the `post` field is only known to the client.
 
-Clients must follow the same Post type standard for compatibility.
-
 ```rust
-PlainPost{
+LocalPostModel{
     id: String,
     genesis: u64,
     expiry: u64,
     owner: String,
-    // The above fields are the same as CypherPost
+    // The above fields are the same as ServerPostModel
     post: Post {
-        kind: PostKind {
-            Ping,
-            Message,
-            Pubkey,
-            AddressIndex,
-            Psbt,
-        },
         to: Recipient {
-            Direct(to: String),
+            Direct(pubkey: String),
             Group(id: String),
         },
         payload: Payload {
-                label : Option<String>,
-                value : T::<impl ToString>, // default: String
-                checksum: String, // md5(stringify=(value))
+            Ping, // All contracts start with a ping
+            ChecksumPong(checksum: String), // All pings responded with pong and checksum proof.
+            Message(text: String),
+            Quote(quote: Quotation),  // quote an exchange rate
+            Confirm(reference: String), // thumbs up another post
+            Reject(reference: String), // thumbs down another post
+            Comment(reference: String, text: String), // comment on another post
+            PolicyXpub(xpub: PolicyXpub),
+            Address(address: WalletAddress),
+            Psbt(psbt: WalletPsbt),
+            Document(doc: std::file::File),
+            Jitsi(url: String),
+            Custom(item: T::<impl IntoHash>)
         },
+        checksum: String,
         signature : String,
     },
+
 }
 ```
 
-
 ### Post Fields
 
-- kind: 
-    One dimension of classification of the Payload
-
 - to: 
-    Another dimension of classification of the Payload based on who its indended recipients are. 
+    A classification of the Payload based on who its indended recipients are. 
 
 - payload: 
-    The actual post contents.
-
-- signature: 
-    Proof of the post's authenticity.
-    Format: `sign($kind:$to:$payload.label:$payload.checksum)`
-
-### Payload Fields
-
-- label: 
-    An open field to be used as a title, name or a reference to link to an external source.
-   
-    We use this particularly to link a Payload to a local wallet by using the wallet fingerprint as the label.
-
-- value: 
     The core contents of your post.
 
-    Currently supports plain message, an xpub, a bitcoin address or a psbt; as strings. 
-
-    It can support any data structure required that can be stringified.
-
 - checksum: 
-    An md5 checksum to verify the integrity of the message.
-    Format: `md5($id:$label:$checksum)`
+    An md5 checksum of the Payload.
+    Format for <impl IntoString>: `md5($to:$payload)`
+    Format for <impl File>: `md5(md5($to):md5($payload)))`
+
+- signature: 
+    Prove the authenticity of the owner. 
+    The ability to decrypt a post given by the server is not sufficient to verify its origin with the owner.
+    Format: `sign($checksum)`
+
+
+Payload sub structures:
+
+```rust
+
+Quotation{
+    base: FiatUnit{
+        INR,
+        Custom(symbol: String)
+    },
+    source_url: String,
+    source_rate: u64,
+    insurance: f64, // escrow base fees
+    dispute: f64, // escrow dispute fees, shared by maker and taker in case of dispute
+    margin: f64, // maker margin
+    price: u64, // your final quote
+}
+
+PolicyXPub{
+    label: String,
+    value: bitcoin::*::ExtendedPubkey
+}
+
+WalletAddress {
+    label: String,
+    index: u64,
+    value: bitcoin::*::Address
+}
+
+WalletPsbt {
+    label: String,
+    value: bitcoin::*::PartiallySignedTransaction
+}
+
+```
+
+All wallet sub structures have the following minimum fields:
+
+- label:
+    Used to link to a wallet
+
+- value: 
+    The actual payload material
 
 
 ## Operations
@@ -117,7 +149,7 @@ PlainPost{
 ### SEND 
 - Create something of `value`. Your private message.
 - Give it a `label`.
-- Calculate its `checksum` to protect its integrity.
+- Calculate its `checksum` to allow verification of its integrity.
 - Your Payload is now ready!
 - Add a group to this Post or use None.
 - Sign the Payload.
