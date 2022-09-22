@@ -56,7 +56,6 @@ pub struct CypherPostModel{
     pub owner: String,
     pub cypher_json: String,
     pub derivation_scheme: String,
-    pub edited : bool,
     pub decryption_key: Option<String>
 }
 
@@ -141,7 +140,6 @@ pub struct PlainPostModel{
     pub expiry: u64,
     pub owner: String,
     pub plain_post: PlainPost,
-    pub edited : bool
 }
 impl PlainPostModel{
     pub fn stringify(&self) -> Result<String, S5Error> {

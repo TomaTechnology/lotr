@@ -143,7 +143,6 @@ mod tests {
 
     let example_model = PlainPostModel{
         id: "s5pvdGwg22tiUp8rsupd4fTrtYMEWS".to_string(),
-        edited: false,
         genesis: 192783921384334,
         expiry: 0,
         owner: "builder".to_string(),

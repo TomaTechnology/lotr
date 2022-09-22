@@ -155,7 +155,6 @@ pub fn decrypt_others_posts(others_posts: Vec<CypherPostModel>, social_root: &st
             expiry: cypherpost.expiry,
             owner: cypherpost.owner,
             plain_post: PlainPost::structify(&plain_json_string).unwrap(),
-            edited : cypherpost.edited
         }
     }).collect())
 }
@@ -172,7 +171,6 @@ pub fn decrypt_my_posts(my_posts: Vec<CypherPostModel>, social_root: &str)->Resu
             expiry: cypherpost.expiry,
             owner: cypherpost.owner,
             plain_post: PlainPost::structify(&plain_json_string).unwrap(),
-            edited : cypherpost.edited
         }
     }).collect())
 }
@@ -263,7 +261,6 @@ mod tests {
             owner: xonly_pair1.pubkey,
             cypher_json: cp_1_to_2.1,
             derivation_scheme: cp_1_to_2.0,
-            edited : false,
             decryption_key: Some(decryption_keys.clone().pop().unwrap().decryption_key)
         };
 

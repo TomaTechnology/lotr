@@ -91,8 +91,8 @@ LocalPostModel{
 
 - checksum: 
     An md5 checksum of the Payload.
-    Format for <impl IntoString>: `md5($to:$payload)`
-    Format for <impl File>: `md5(md5($to):md5($payload)))`
+    Format for IntoString trait : `md5($to:$payload)`
+    Format for File trait : `md5(md5($to):md5($payload)))`
 
 - signature: 
     Prove the authenticity of the owner. 
