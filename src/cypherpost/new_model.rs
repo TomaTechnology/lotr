@@ -7,12 +7,14 @@ pub struct CypherpostIdentity{
     pub pubkey: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServerPostRequest{
     pub expiry: u64,
     pub cypher_json: String,
     pub derivation_scheme: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServerPostResponse{
     pub id: String,
     pub genesis: u64,
@@ -23,6 +25,7 @@ pub struct ServerPostResponse{
     pub decryption_key: Option<String>
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PostModel {
     pub id: String,
     pub genesis: u64,
@@ -30,7 +33,55 @@ pub struct PostModel {
     pub owner: String,
     pub post: Post,
 }
+impl PostModel{
+    
+    pub fn from_cypher(
+        cypherpost: ServerPostResponse,
+        social_root: &str
+    )->Result<Self, S5Error>{
+        // check if reponse owner is self or other
+        let my_pubkey = XOnlyPair::from_keypair(ec::keypair_from_xprv_str(social_root.clone()).unwrap()).pubkey;
+        if cypherpost.owner == my_pubkey {
+            let decryption_key_root = child::to_path_str(social_root, &cypherpost.derivation_scheme).unwrap();
+            let decryption_key = key_hash256(&decryption_key_root.xprv);
+            let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key){
+                Ok(plain)=>{
+                    plain
+                }
+                Err(err)=>{
+                    return Err(S5Error::new(ErrorKind::Key, "Decryption failure."));
+                }
+            }
+            PostModel{
+                id: cypherpost.id,
+                genesis: cypherpost.genesis,
+                expiry: cypherpost.expiry,
+                owner: cypherpost.owner,
+                post: Post::structify(&plain_json_string).unwrap(),
+            }
+        }
+        else {
+            let my_key_pair = ec::keypair_from_xprv_str(social_root).unwrap();
+            let my_xonly_pair = ec::XOnlyPair::from_keypair(my_key_pair);
+            let shared_secret = ec::compute_shared_secret_str(&my_xonly_pair.seckey, &cypherpost.owner).unwrap();
+            let decryption_key = cc20p1305_decrypt(&cypherpost.decryption_key.unwrap(), &shared_secret).unwrap_or("Bad Key".to_string());
+            let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key)
+            .unwrap_or(Post::new(PostKind::Message, None, PostItem::new(None, "Decryption Error".to_string())).stringify().unwrap());
+    
+            Ok(PostModel{
+                id: cypherpost.id,
+                genesis: cypherpost.genesis,
+                expiry: cypherpost.expiry,
+                owner: cypherpost.owner,
+                post: Post::structify(&plain_json_string).unwrap(),
+            });
+        }
 
+        // parse into Post and create PostModel
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Post {
     pub to: Recipient,
     pub payload: Payload,
@@ -39,20 +90,34 @@ pub struct Post {
 }
 
 impl Post{
-
-    pub fn sign(&self)->String{
-        let value = &self.to.to_string() + ":" + self.payload.to_string();
-        key_hash256(value)
-    }
     pub fn new(
         to: Recipient, 
         payload: Payload, 
+        key_pair: KeyPair
     )->Self{
+        let checksum_message = &to.to_string() + ":" + payload.to_string();
+        let checksum = key_hash256(checksum_message);
         Post {
             to,
             payload,
-            key_hash256(&to.to_string() + ":" + payload.to_string()),
-            this.sign(),
+            checksum.clone(),
+            schnorr_sign(checksum),
+        }
+    }
+    pub fn stringify(&self) -> Result<String, S5Error> {
+        match serde_json::to_string(self) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
+            }
+        }
+    }
+    pub fn structify(stringified: &str) -> Result<PlainPost, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
+            }
         }
     }
 }
@@ -61,6 +126,7 @@ pub enum Recipient {
     Direct(pubkey: String),
     Group(id: String),
 }
+
 pub enum Payload {
     Ping, // All contracts start with a ping
     ChecksumPong(checksum: String), // All pings responded with pong and checksum proof.
