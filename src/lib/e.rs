@@ -2,6 +2,7 @@
 use std::fmt::Display;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
+use ureq::Error;
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum ErrorKind {
@@ -37,4 +38,23 @@ impl S5Error {
       message: message.to_string(),
     }
   }
+  pub fn from_ureq(e: ureq::Error)->Self{
+    match e {
+      ureq::Error::Status(code, response) => {
+        let kind = match code {
+            400 => ErrorKind::Input,
+            401 => ErrorKind::Key,
+            403 => ErrorKind::Key,
+            404 => ErrorKind::Network,
+            409 => ErrorKind::Input,
+            _=> ErrorKind::Internal
+        };
+        S5Error::new(kind, &response.status_text())
+      }
+      _ => { 
+        S5Error::new(ErrorKind::Network, "Transport Error. Check your internet connection.")
+      }
+    }
+  }
+
 }
