@@ -3,15 +3,15 @@ use bip39::{Language, Mnemonic};
 use bdk::bitcoin::network::constants::Network;
 use bdk::bitcoin::secp256k1::rand::rngs::OsRng;
 use bdk::bitcoin::secp256k1::Secp256k1;
-use bdk::bitcoin::util::bip32::ExtendedPrivKey;
+use bdk::bitcoin::util::bip32::{ExtendedPrivKey};
 
 use crate::lib::e::{ErrorKind, S5Error};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MasterKeySeed {
   pub fingerprint: String,
-  pub mnemonic: String,
-  pub xprv: String,
+  pub mnemonic: Mnemonic,
+  pub xprv: ExtendedPrivKey,
 }
 
 pub fn generate(
@@ -45,8 +45,8 @@ pub fn generate(
   
     Ok(MasterKeySeed {
       fingerprint: master_xprv.fingerprint(&secp).to_string(),
-      mnemonic: mnemonic.to_string(),
-      xprv: master_xprv.to_string(),
+      mnemonic: mnemonic,
+      xprv: master_xprv,
     })
   }
 
@@ -68,8 +68,8 @@ pub fn generate(
   
     Ok(MasterKeySeed {
       fingerprint: master_xprv.fingerprint(&secp).to_string(),
-      mnemonic: mnemonic.to_string(),
-      xprv: master_xprv.to_string(),
+      mnemonic: mnemonic_struct,
+      xprv: master_xprv,
     })
   }
 
@@ -82,7 +82,7 @@ mod tests {
     assert_eq!(
       24,
       master_key
-        .mnemonic
+        .mnemonic.to_string()
         .split_whitespace()
         .collect::<Vec<&str>>()
         .len()
@@ -91,7 +91,7 @@ mod tests {
     assert_eq!(
       12,
       master_key
-        .mnemonic
+        .mnemonic.to_string()
         .split_whitespace()
         .collect::<Vec<&str>>()
         .len()
@@ -100,12 +100,12 @@ mod tests {
     assert_eq!(
       24,
       master_key
-        .mnemonic
+        .mnemonic.to_string()
         .split_whitespace()
         .collect::<Vec<&str>>()
         .len()
     );
-    let imported_master_key = import(&master_key.mnemonic, "password", Network::Testnet).unwrap();
+    let imported_master_key = import(&master_key.mnemonic.to_string(), "password", Network::Testnet).unwrap();
     assert_eq!(imported_master_key.xprv, master_key.xprv);
     assert_eq!(imported_master_key.fingerprint, master_key.fingerprint);
   }

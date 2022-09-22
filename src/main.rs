@@ -4,7 +4,6 @@ extern crate rpassword;
 use rpassword::read_password;
 use std::io::Write;
 use bitcoin::network::constants::Network;
-#[macro_use] extern crate text_io;
 
 
 
@@ -277,7 +276,7 @@ fn main() {
                     };
 
                     let social_path = "m/128h/0h";
-                    let child_social = match child::to_path_str(&seed.xprv,social_path){
+                    let child_social = match child::to_path_str(seed.xprv,social_path){
                         Ok(keys)=>keys,
                         Err(e)=>{
                             println!("{:?}", e);
@@ -285,7 +284,7 @@ fn main() {
                         }
                     };
 
-                    let child_money = match child::to_hardened_account(&seed.xprv,child::DerivationPurpose::Native,0){
+                    let child_money = match child::to_hardened_account(seed.xprv,child::DerivationPurpose::Native,0){
                         Ok(keys)=> keys,
                         Err(e)=>{
                             println!("{:?}", e);
@@ -364,7 +363,7 @@ fn main() {
                     };
 
                     let social_path = "m/128h/0h";
-                    let child_social = match child::to_path_str(&seed.xprv,social_path){
+                    let child_social = match child::to_path_str(seed.xprv,social_path){
                         Ok(keys)=>keys,
                         Err(e)=>{
                             println!("{:?}", e);
@@ -372,7 +371,7 @@ fn main() {
                         }
                     };
 
-                    let child_money = match child::to_hardened_account(&seed.xprv,child::DerivationPurpose::Native,0){
+                    let child_money = match child::to_hardened_account(seed.xprv,child::DerivationPurpose::Native,0){
                         Ok(keys)=> keys,
                         Err(e)=>{
                             println!("{:?}", e);

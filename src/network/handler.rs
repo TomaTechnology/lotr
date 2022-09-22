@@ -1,11 +1,5 @@
-use crate::key::ec;
-use secp256k1::{KeyPair};
 use crate::lib::e::{S5Error,ErrorKind};
-use crate::network;
-// use crate::cypherpost::model::{CypherPostModel,PlainPostModel,PlainPost,DecryptionKey,CypherpostIdentity,PostItem,PostKind,ServerPreferences};
 use crate::key::ec::{XOnlyPair};
-use crate::key::child;
-use crate::key::encryption::{key_hash256,cc20p1305_decrypt,cc20p1305_encrypt};
 use serde::{Deserialize, Serialize};
 
 pub enum HttpMethod{
@@ -110,8 +104,6 @@ pub fn sign_request(keys: XOnlyPair, method: HttpMethod, endpoint: APIEndPoint, 
     let signature = keys.schnorr_sign(&message).unwrap();
     return Ok(signature.to_string());
 }
-
-
 
 // #[cfg(test)]
 // mod tests {

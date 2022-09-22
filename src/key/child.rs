@@ -12,8 +12,8 @@ use std::str::FromStr;
 pub struct ChildKeys {
     pub fingerprint: String,
     pub hardened_path: String,
-    pub xprv: String,
-    pub xpub: String,
+    pub xprv: ExtendedPrivKey,
+    pub xpub: ExtendedPubKey,
 }
 impl ChildKeys {
     pub fn stringify(&self) -> Result<String, S5Error> {
@@ -54,16 +54,11 @@ impl Display for DerivationPurpose {
 }
 
 pub fn to_hardened_account(
-    master_xprv: &str,
+    root: ExtendedPrivKey,
     purpose: DerivationPurpose,
     account: u64,
 ) -> Result<ChildKeys, S5Error> {
     let secp = Secp256k1::new();
-    let root = match ExtendedPrivKey::from_str(master_xprv) {
-        Ok(xprv) => xprv,
-        Err(_) => return Err(S5Error::new(ErrorKind::Key, "Invalid Master Key.")),
-    };
-
     let fingerprint = root.fingerprint(&secp);
     let network = root.network;
 
@@ -98,16 +93,12 @@ pub fn to_hardened_account(
     Ok(ChildKeys {
         fingerprint: fingerprint.to_string(),
         hardened_path,
-        xprv: child_xprv.to_string(),
-        xpub: child_xpub.to_string(),
+        xprv: child_xprv,
+        xpub: child_xpub,
     })
 }
-pub fn to_path_str(master_xprv: &str, derivation_path: &str) -> Result<ChildKeys, S5Error> {
+pub fn to_path_str(root: ExtendedPrivKey, derivation_path: &str) -> Result<ChildKeys, S5Error> {
     let secp = Secp256k1::new();
-    let root = match ExtendedPrivKey::from_str(master_xprv) {
-        Ok(xprv) => xprv,
-        Err(_) => return Err(S5Error::new(ErrorKind::Key, "Invalid Master Key.")),
-    };
     let fingerprint = root.fingerprint(&secp);
     let path = match DerivationPath::from_str(derivation_path) {
         Ok(path) => path,
@@ -122,8 +113,8 @@ pub fn to_path_str(master_xprv: &str, derivation_path: &str) -> Result<ChildKeys
     Ok(ChildKeys {
         fingerprint: fingerprint.to_string(),
         hardened_path: derivation_path.to_string(),
-        xprv: child_xprv.to_string(),
-        xpub: child_xpub.to_string(),
+        xprv: child_xprv,
+        xpub: child_xpub,
     })
 }
 
@@ -138,33 +129,20 @@ mod tests {
     #[test]
     fn test_derivation() {
         let fingerprint = "eb79e0ff";
-        let master_xprv: &str = "tprv8ZgxMBicQKsPduTkddZgfGyk4ZJjtEEZQjofpyJg74LizJ469DzoF8nmU1YcvBFskXVKdoYmLoRuZZR1wuTeuAf8rNYR2zb1RvFns2Vs8hY";
+        let master_xprv = ExtendedPrivKey::from_str("tprv8ZgxMBicQKsPduTkddZgfGyk4ZJjtEEZQjofpyJg74LizJ469DzoF8nmU1YcvBFskXVKdoYmLoRuZZR1wuTeuAf8rNYR2zb1RvFns2Vs8hY").unwrap();
         let purpose = DerivationPurpose::Native; // 84
         let account = 0; // 0
         let hardened_path = "m/84h/1h/0h";
-        let account_xprv = "tprv8gqqcZU4CTQ9bFmmtVCfzeSU9ch3SfgpmHUPzFP5ktqYpnjAKL9wQK5vx89n7tgkz6Am42rFZLS9Qs4DmFvZmgukRE2b5CTwiCWrJsFUoxz";
-        let account_xpub = "tpubDDXskyWJLq5pUioZn8sGQ46aieCybzsjLb5BGmRPBAdwfGyvwiyXaoho8EYJcgJa5QGHGYpDjLQ8gWzczWbxadeRkCuExW32Boh696yuQ9m";
+        let account_xprv = ExtendedPrivKey::from_str("tprv8gqqcZU4CTQ9bFmmtVCfzeSU9ch3SfgpmHUPzFP5ktqYpnjAKL9wQK5vx89n7tgkz6Am42rFZLS9Qs4DmFvZmgukRE2b5CTwiCWrJsFUoxz").unwrap();
+        let account_xpub = ExtendedPubKey::from_str("tpubDDXskyWJLq5pUioZn8sGQ46aieCybzsjLb5BGmRPBAdwfGyvwiyXaoho8EYJcgJa5QGHGYpDjLQ8gWzczWbxadeRkCuExW32Boh696yuQ9m").unwrap();
         let child_keys = ChildKeys {
             fingerprint: fingerprint.to_string(),
             hardened_path: hardened_path.to_string(),
-            xprv: account_xprv.to_string(),
-            xpub: account_xpub.to_string(),
+            xprv: account_xprv,
+            xpub: account_xpub,
         };
         let derived = to_hardened_account(master_xprv, purpose, account).unwrap();
         assert_eq!(derived.xprv, child_keys.xprv);
-    }
-
-    #[test]
-    fn test_derivation_errors() {
-        let master_xprv: &str = "tpr8ZgxMBicQKsPduTkddZgfGyk4ZJjtEEZQjofpyJg74LizJ469DzoF8nmU1YcvBFskXVKdoYmLoRuZZR1wuTeuAf8rNYR2zb1RvFns2Vs8hY";
-        let purpose = DerivationPurpose::Native; //Native-native
-        let account = 0; // 0
-        let expected_error = "Invalid Master Key.";
-
-        let derived = to_hardened_account(master_xprv, purpose.clone(), account)
-            .err()
-            .unwrap();
-        assert_eq!(derived.message, expected_error);
     }
 
     #[test]

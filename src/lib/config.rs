@@ -278,7 +278,8 @@ pub fn _check_client(network: Network, node_address: &str) -> Result<bool, S5Err
 mod tests {
   use super::*;
   use bdk::blockchain::Blockchain;
-  #[test]
+  #[test] 
+  #[ignore]
   fn test_default_electrum_config() {
     let xkey = "[db7d25b5/84'/1'/6']tpubDCCh4SuT3pSAQ1qAN86qKEzsLoBeiugoGGQeibmieRUKv8z6fCTTmEXsb9yeueBkUWjGVzJr91bCzeCNShorbBqjZV4WRGjz3CrJsCboXUe";
     let descriptor = format!("wpkh({}/*)", xkey);
@@ -314,7 +315,7 @@ mod tests {
   }
 
   #[test]
-
+  #[ignore]
   fn test_config_errors() {
     let descriptor = "[fingerprint/h/d/path]xprv/*";
     let node_address = "ssl://electrum.blockstream.info:5002";

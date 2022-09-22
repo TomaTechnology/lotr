@@ -1,11 +1,10 @@
 use std::{str};
-use crate::lib::e::{ErrorKind, S5Error};
-
 use chacha20poly1305::{XChaCha20Poly1305, Key, XNonce};
 use chacha20poly1305::aead::{Aead, NewAead};
 use bdk::bitcoin::secp256k1::rand::{thread_rng,Rng};
-// use hex::encode;
 use sha2::{Sha256, Digest};
+
+use crate::lib::e::{ErrorKind, S5Error};
 
 pub fn key_hash256(key: &str)->String{
     let mut hasher = Sha256::new();

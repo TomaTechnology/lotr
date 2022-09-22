@@ -34,6 +34,26 @@ impl XOnlyPair {
         pubkey: keypair.public_key(),
       };
   }
+  pub fn from_xprv(xprv: ExtendedPrivKey) -> XOnlyPair {
+    let secp = Secp256k1::new();
+    let keypair = KeyPair::from_secret_key(&secp, xprv.private_key);
+    let public_key = PublicKey::from_keypair(&keypair);
+      // ENFORCE EVEN PARITY!
+    let parity = public_key.to_string().remove(1);
+    let keypair = if parity == '3' {
+      let mut seckey = SecretKey::from_keypair(&keypair);
+      seckey.negate_assign();
+      let key_pair = KeyPair::from_secret_key(&secp, seckey); 
+      key_pair
+    }
+    else{
+      keypair
+    };
+    return XOnlyPair {
+      seckey: SecretKey::from_keypair(&keypair),
+      pubkey: keypair.public_key(),
+    };
+}
   pub fn to_public_key(&self) -> PublicKey{
     let pubkey = self.pubkey.to_string();
     let public_key = if pubkey.len() == 64 {
@@ -66,15 +86,14 @@ impl XOnlyPair {
     Ok(signature)
   }
 }
-  
-pub fn schnorr_verify(signature: Signature,message: &str, pubkey: XOnlyPublicKey) -> Result<bool, S5Error> {
+
+pub fn schnorr_verify(signature: Signature,message: &str, pubkey: XOnlyPublicKey) -> Result<(), S5Error> {
   let message = Message::from_hashed_data::<sha256::Hash>(message.as_bytes());
   match signature.verify(&message, &pubkey) {
-    Ok(()) => Ok(true),
-    Err(e) => Err(S5Error::new(ErrorKind::Key, "BAD SIGNATURE"))
+    Ok(_) => Ok(()),
+    Err(_) => Err(S5Error::new(ErrorKind::Key, "BAD SIGNATURE"))
   }
 }
-
 pub fn keypair_from_xprv_str(xprv: &str) -> Result<KeyPair, S5Error> {
   let secp = Secp256k1::new();
   let xprv = match ExtendedPrivKey::from_str(xprv) {
@@ -82,15 +101,6 @@ pub fn keypair_from_xprv_str(xprv: &str) -> Result<KeyPair, S5Error> {
     Err(_) => return Err(S5Error::new(ErrorKind::Key, "BAD XPRV STRING")),
   };
   let key_pair = match KeyPair::from_seckey_str(&secp, &hex::encode(xprv.private_key.secret_bytes())) {
-    Ok(kp) => kp,
-    Err(_) => return Err(S5Error::new(ErrorKind::Key, "BAD SECKEY STRING")),
-  };
-
-  Ok(key_pair)
-}
-pub fn keypair_from_seckey_str(seckey: &str) -> Result<KeyPair, S5Error> {
-  let secp = Secp256k1::new();
-  let key_pair = match KeyPair::from_seckey_str(&secp, seckey) {
     Ok(kp) => kp,
     Err(_) => return Err(S5Error::new(ErrorKind::Key, "BAD SECKEY STRING")),
   };
@@ -131,27 +141,21 @@ mod tests {
   fn test_schnorr_sigs() {
     let message = "stackmate 1646056571433";
     let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
-    let key_pair = keypair_from_xprv_str(&seed.xprv).unwrap();
-    let xonlypair = XOnlyPair::from_keypair(key_pair);
+    let xonlypair = XOnlyPair::from_xprv(seed.xprv);
     let signature = xonlypair.schnorr_sign(message).unwrap();
-    let check_sig = schnorr_verify(signature,message, xonlypair.pubkey).unwrap();
-    assert!(check_sig);
+    schnorr_verify(signature,message, xonlypair.pubkey).unwrap();
   }
 
   #[test]
   fn test_shared_secret() {
     let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
-    let key_pair = keypair_from_xprv_str(&seed.xprv).unwrap();    
-    let alice_pair = XOnlyPair::from_keypair(key_pair.clone());
+    let alice_pair = XOnlyPair::from_xprv(seed.xprv);
 
     let seed = seed::generate(24, "", Network::Bitcoin).unwrap();
-    let key_pair = keypair_from_xprv_str(&seed.xprv).unwrap();
-    let bob_pair = XOnlyPair::from_keypair(key_pair.clone());
-
+    let bob_pair = XOnlyPair::from_xprv(seed.xprv);
     // Alice only has Bob's XOnlyPubkey string
     let alice_shared_secret =
       alice_pair.compute_shared_secret(bob_pair.to_public_key()).unwrap();
-
     // Bob only has Alice's XOnlyPubkey string
     let bob_shared_secret =
       bob_pair.compute_shared_secret(alice_pair.to_public_key()).unwrap();

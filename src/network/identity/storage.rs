@@ -1,6 +1,8 @@
 use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
 use crate::network::identity::model::{MemberIdentity};
+use bitcoin::secp256k1::{XOnlyPublicKey};
+
 
 pub fn create_members(member_models: Vec<MemberIdentity>)->Result<bool, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
@@ -34,7 +36,7 @@ pub fn read_all_members()->Result<Vec<MemberIdentity>,S5Error>{
     }
 
 }
-pub fn get_username_by_pubkey(mut members: Vec<MemberIdentity>, pubkey: &str)->Result<String,S5Error>{
+pub fn get_username_by_pubkey(mut members: Vec<MemberIdentity>, pubkey: XOnlyPublicKey)->Result<String,S5Error>{
     members.retain(|val| val.pubkey == pubkey);
     if members.len() == 1 {
         Ok(members[0].username.to_string())
@@ -101,20 +103,22 @@ pub fn delete_my_identity()->bool{
 #[cfg(test)]
 mod tests {
   use super::*;
-
+  use crate::key::ec;
+  
   #[test]
   fn test_identity_store(){
     let me = MemberIdentity{
         username: "ishi".to_string(),
-        pubkey: "66a4b6e8b4c544111a6736d4f4195027d23495d947f87aa448c088da477c1b5f".to_string()
+        pubkey: ec::pubkey_from_str("86a4b6e8b4c544111a6736d4f4195027d23495d947f87aa448c088da477c1b5f").unwrap()
     };
+    
     let mem1 = MemberIdentity{
         username: "sushi".to_string(),
-        pubkey: "76a4b6e8b4c544111a6736d4f4195027d23495d947f87aa448c088da477c1b5f".to_string()
+        pubkey: ec::pubkey_from_str("2ad4b769ddfdd8e47cb4840d85b679ad17d2f076b2ca65b6f18758db41257ccc").unwrap()
     };
     let mem2 = MemberIdentity{
         username: "bubble".to_string(),
-        pubkey: "86a4b6e8b4c544111a6736d4f4195027d23495d947f87aa448c088da477c1b5f".to_string()
+        pubkey: ec::pubkey_from_str("1585c9ac1392819d93003fa3634274463c88982f6053bc53dada159093012a3f").unwrap()
     };
     let status = create_my_identity(me.clone()).unwrap();
     assert!(status);
@@ -127,7 +131,7 @@ mod tests {
     let members = read_all_members().unwrap();
     assert_eq!(members.len(),3);
 
-    let member = get_username_by_pubkey(members,"86a4b6e8b4c544111a6736d4f4195027d23495d947f87aa448c088da477c1b5f").unwrap();    
+    let member = get_username_by_pubkey(members,ec::pubkey_from_str("1585c9ac1392819d93003fa3634274463c88982f6053bc53dada159093012a3f").unwrap()).unwrap();    
     assert_eq!(member, mem2.username);
 
     let status = delete_members();
