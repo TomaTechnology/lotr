@@ -18,7 +18,8 @@ use crate::key::ec;
 
 mod network;
 use crate::network::identity;
-// use crate::cypherpost::notification;
+use crate::network::post;
+use crate::network::notification;
 use tungstenite::{Message};
 
 mod contract;

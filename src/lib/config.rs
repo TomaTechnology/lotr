@@ -14,6 +14,8 @@ use crate::lib::e::{ErrorKind, S5Error};
 pub const DEFAULT: &str = "default";
 pub const DEFAULT_TESTNET_NODE: &str = "ssl://electrum.blockstream.info:60002";
 pub const DEFAULT_MAINNET_NODE: &str = "ssl://electrum.blockstream.info:50002";
+pub const DEFAULT_MAIN_NETWORK: &str = "lotr.toma.tech";
+pub const DEFAULT_TEST_NETWORK: &str = "localhost:3021";
 
 pub struct WalletConfig {
   pub deposit_desc: String,

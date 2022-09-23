@@ -53,15 +53,6 @@ impl XOnlyPair {
       seckey: SecretKey::from_keypair(&keypair),
       pubkey: keypair.public_key(),
     };
-}
-  pub fn to_public_key(&self) -> PublicKey{
-    let pubkey = self.pubkey.to_string();
-    let public_key = if pubkey.len() == 64 {
-      "02".to_string() + &pubkey
-    } else {
-      pubkey.to_string()
-    };
-    PublicKey::from_str(&public_key).unwrap()
   }
   pub fn to_keypair(&self) -> KeyPair{
     let secp = Secp256k1::new();
@@ -87,6 +78,15 @@ impl XOnlyPair {
   }
 }
 
+pub fn xonly_to_public_key(xonly: XOnlyPublicKey) -> PublicKey{
+  let pubkey = xonly.to_string();
+  let public_key = if pubkey.len() == 64 {
+    "02".to_string() + &pubkey
+  } else {
+    pubkey.to_string()
+  };
+  PublicKey::from_str(&public_key).unwrap()
+}
 pub fn schnorr_verify(signature: Signature,message: &str, pubkey: XOnlyPublicKey) -> Result<(), S5Error> {
   let message = Message::from_hashed_data::<sha256::Hash>(message.as_bytes());
   match signature.verify(&message, &pubkey) {
@@ -155,10 +155,10 @@ mod tests {
     let bob_pair = XOnlyPair::from_xprv(seed.xprv);
     // Alice only has Bob's XOnlyPubkey string
     let alice_shared_secret =
-      alice_pair.compute_shared_secret(bob_pair.to_public_key()).unwrap();
+      alice_pair.compute_shared_secret(xonly_to_public_key(bob_pair.pubkey)).unwrap();
     // Bob only has Alice's XOnlyPubkey string
     let bob_shared_secret =
-      bob_pair.compute_shared_secret(alice_pair.to_public_key()).unwrap();
+      bob_pair.compute_shared_secret(xonly_to_public_key(alice_pair.pubkey)).unwrap();
     assert_eq!(alice_shared_secret, bob_shared_secret);
   }
 }

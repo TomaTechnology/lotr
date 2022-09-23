@@ -21,8 +21,8 @@ impl AdminInviteResponse{
         }
     }
 }
-pub fn admin_invite(url: &str, admin_secret: &str)->Result<String, S5Error>{
-    let full_url = url.to_string() + &APIEndPoint::AdminInvite.to_string();
+pub fn admin_invite(host: &str, admin_secret: &str)->Result<String, S5Error>{
+    let full_url = host.to_string() + &APIEndPoint::AdminInvite.to_string();
     match ureq::get(&full_url)
         .set(&HttpHeader::AdminInvite.to_string(), admin_secret)
         .call()
@@ -53,16 +53,16 @@ impl IdentityRegisterRequest{
     }
 }
 
-pub fn register(url: &str,keys: XOnlyPair, invite_code: &str, username: &str)->Result<(), S5Error>{
-    let full_url = url.to_string() + &APIEndPoint::Identity.to_string();
+pub fn register(host: &str,keypair: XOnlyPair, invite_code: &str, username: &str)->Result<(), S5Error>{
+    let full_url = host.to_string() + &APIEndPoint::Identity.to_string();
     let nonce = nonce();
-    let signature = sign_request(keys.clone(), HttpMethod::Post, APIEndPoint::Identity, &nonce).unwrap();
+    let signature = sign_request(keypair.clone(), HttpMethod::Post, APIEndPoint::Identity, &nonce).unwrap();
     let body = IdentityRegisterRequest::new(username);
 
     match ureq::post(&full_url)
         .set(&HttpHeader::ClientInvite.to_string(), invite_code)
         .set(&HttpHeader::Signature.to_string(), &signature)
-        .set(&HttpHeader::Pubkey.to_string(), &keys.pubkey.to_string())
+        .set(&HttpHeader::Pubkey.to_string(), &keypair.pubkey.to_string())
         .set(&HttpHeader::Nonce.to_string(), &nonce)
         .send_json(body){
             Ok(response)=>  
@@ -102,14 +102,14 @@ impl AllIdentitiesResponse{
     }
 }
 
-pub fn get_all(url: &str,keys: XOnlyPair)->Result<Vec<MemberIdentity>, S5Error>{
-    let full_url = url.to_string() + &APIEndPoint::AllIdentities.to_string();
+pub fn get_all(host: &str,keypair: XOnlyPair)->Result<Vec<MemberIdentity>, S5Error>{
+    let full_url = host.to_string() + &APIEndPoint::AllIdentities.to_string();
     let nonce = nonce();
-    let signature = sign_request(keys.clone(), HttpMethod::Get, APIEndPoint::AllIdentities, &nonce).unwrap();
+    let signature = sign_request(keypair.clone(), HttpMethod::Get, APIEndPoint::AllIdentities, &nonce).unwrap();
 
     match ureq::get(&full_url)
         .set(&HttpHeader::Signature.to_string(), &signature)
-        .set(&HttpHeader::Pubkey.to_string(), &keys.pubkey.to_string())
+        .set(&HttpHeader::Pubkey.to_string(), &keypair.pubkey.to_string())
         .set(&HttpHeader::Nonce.to_string(), &nonce)
         .call(){
             Ok(response)=>
@@ -126,14 +126,14 @@ pub fn get_all(url: &str,keys: XOnlyPair)->Result<Vec<MemberIdentity>, S5Error>{
         }
 }
 
-pub fn remove(url: &str,keys: XOnlyPair)->Result<(), S5Error>{
-    let full_url = url.to_string() + &APIEndPoint::Identity.to_string();
+pub fn remove(host: &str,keypair: XOnlyPair)->Result<(), S5Error>{
+    let full_url = host.to_string() + &APIEndPoint::Identity.to_string();
     let nonce = nonce();
-    let signature = sign_request(keys.clone(), HttpMethod::Delete, APIEndPoint::Identity, &nonce).unwrap();
+    let signature = sign_request(keypair.clone(), HttpMethod::Delete, APIEndPoint::Identity, &nonce).unwrap();
 
     match ureq::delete(&full_url)
         .set(&HttpHeader::Signature.to_string(), &signature)
-        .set(&HttpHeader::Pubkey.to_string(), &keys.pubkey.to_string())
+        .set(&HttpHeader::Pubkey.to_string(), &keypair.pubkey.to_string())
         .set(&HttpHeader::Nonce.to_string(), &nonce)
         .call(){
             Ok(response)=> match ServerStatusResponse::structify(&response.into_string().unwrap())

@@ -1,7 +1,14 @@
-use crate::key::encryption::key_hash256;
-use crate::key::ec::{schnorr_sign,schnorr_verify};
+use crate::key::encryption::{self,key_hash256};
+use crate::key::child;
+use crate::key::ec::{XOnlyPair,xonly_to_public_key};
+use bdk::bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::{XOnlyPublicKey};
-
+use bdk::bitcoin::util::bip32::ExtendedPrivKey;
+use serde::{Deserialize, Serialize};
+use crate::lib::e::{S5Error,ErrorKind};
+use crate::network::identity::model::{MemberIdentity};
+use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_MAIN_NETWORK, DEFAULT_MAINNET_NODE, DEFAULT_TESTNET_NODE};
+use bdk::bitcoin::network::constants::Network;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalPostModel {
@@ -24,52 +31,52 @@ impl Post{
     pub fn new(
         to: Recipient, 
         payload: Payload, 
-        key_pair: KeyPair
+        keypair: XOnlyPair
     )->Self{
-        let checksum_message = &to.to_string() + ":" + payload.to_string();
-        let checksum = key_hash256(checksum_message);
+        let checksum_message = to.to_string() + ":" + &payload.to_string();
+        let checksum = key_hash256(&checksum_message);
         Post {
             to,
             payload,
-            checksum.clone(),
-            schnorr_sign(checksum, key_pair),
+            checksum:checksum.clone(),
+            signature: keypair.schnorr_sign(&checksum).unwrap(),
         }
     }
     pub fn stringify(&self) -> Result<String, S5Error> {
         match serde_json::to_string(self) {
             Ok(result) => Ok(result),
             Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying Post"))
             }
         }
     }
 
-    pub fn structify(stringified: &str) -> Result<PlainPost, S5Error> {
+    pub fn structify(stringified: &str) -> Result<Post, S5Error> {
         match serde_json::from_str(stringified) {
             Ok(result) => Ok(result),
             Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying PlainPost"))
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying Post"))
             }
         }
     }
-    pub fn encypher(&self, social_root: &str, derivation: &str)->String{
-        let enc_source = key::child::to_path_str(social_root, derivation).unwrap().xprv;
-        let encryption_key  = key::encryption::key_hash256(&enc_source);
-        let cypher = key::encryption::cc20p1305_encrypt(&self.stringify().unwrap(), &encryption_key).unwrap();
+    pub fn to_cypher(&self, social_root: ExtendedPrivKey, derivation: &str)->String{
+        let enc_source = child::to_path_str(social_root, derivation).unwrap().xprv.to_string();
+        let encryption_key  = encryption::key_hash256(&enc_source);
+        let cypher = encryption::cc20p1305_encrypt(&self.stringify().unwrap(), &encryption_key).unwrap();
         cypher
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Recipient {
-    Direct(to: XOnlyPublicKey),
-    Group(id: String),
+    Direct(XOnlyPublicKey),
+    Group(String),
 }
 impl Recipient {
     pub fn to_string(&self)->String{
         match self{
-            Direct(pubkey)=>pubkey,
-            Group(id)=>id
+            Recipient::Direct(pubkey)=>pubkey.to_string(),
+            Recipient::Group(id)=>id.to_string()
         }
     }
 }
@@ -77,18 +84,62 @@ impl Recipient {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Payload {
     Ping, // All contracts start with a ping
-    ChecksumPong(checksum: String), // All pings responded with pong and checksum proof.
-    Message(text: String),
-    Confirm(reference: String), // thumbs up another post
-    Reject(reference: String), // thumbs down another post
-    Comment(reference: String, text: String), // comment on another post
-    PolicyXpub(xpub: PolicyXpub),
-    Address(address: WalletAddress),
-    Psbt(psbt: WalletPsbt),
-    Document(doc: std::file::File),
-    Jitsi(url: String),
+    ChecksumPong(String), // All pings responded with pong and checksum proof.
+    Message(String),
+    Preferences(AppPreferences),
+    // Comment(Comment), // comment on another post
+    // PolicyXpub(PolicyXpub),
+    // Address(WalletAddress),
+    // Psbt(WalletPsbt),
+    // Jitsi(String),
 }
-impl Payload{
+impl Payload {
+    pub fn to_string(&self)->String{
+        match self{
+            Payload::Ping=>"Ping".to_string(),
+            Payload::ChecksumPong(checksum)=>checksum.to_string(),
+            Payload::Message(text)=>text.to_string(),
+            Payload::Preferences(prefs)=>prefs.stringify().unwrap()
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AppPreferences {
+    bitcoin_host: String,
+    network_host: String,
+    socks5: Option<u32>,
+    last_derivation_path: String,
+    muted: Vec<String>, 
+}
+
+impl AppPreferences {
+    pub fn default(network: Network)->Self{
+        match network {
+            Network::Bitcoin=>AppPreferences{
+                bitcoin_host: DEFAULT_MAINNET_NODE.to_string(),
+                network_host: DEFAULT_MAIN_NETWORK.to_string(),
+                socks5: None,
+                last_derivation_path: "m/1h/0h".to_string(),
+                muted: [].to_vec()
+            },
+            _=>AppPreferences{
+                bitcoin_host: DEFAULT_TESTNET_NODE.to_string(),
+                network_host: DEFAULT_TEST_NETWORK.to_string(),
+                socks5: None,
+                last_derivation_path: "m/1h/0h".to_string(),
+                muted: [].to_vec()
+            }
+        }
+    }
+    pub fn stringify(&self) -> Result<String, S5Error> {
+        match serde_json::to_string(self) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying AppPreferences"))
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -97,79 +148,27 @@ pub struct DecryptionKey{
    pub receiver: XOnlyPublicKey
 }
 impl DecryptionKey{
-    pub fn new(decryption_key: &str,receiver: &str)->DecryptionKey{
+    pub fn new(decryption_key: &str,receiver: XOnlyPublicKey)->DecryptionKey{
         DecryptionKey {
             decryption_key: decryption_key.to_string(),
-            receiver: receiver.to_string()
+            receiver
         }
+    }
+
+    pub fn make_for_many(recipients: Vec<MemberIdentity>,social_root: ExtendedPrivKey, derivation_scheme: &str)->Result<Vec<DecryptionKey>,S5Error>{
+        let enc_source = child::to_path_str(social_root, &derivation_scheme).unwrap().xprv.to_string();
+        let encryption_key  = key_hash256(&enc_source);
+        let xonly_pair = XOnlyPair::from_xprv(social_root);
+        Ok(
+            recipients.into_iter().map(|recipient|{
+                let shared_secret = xonly_pair.compute_shared_secret(xonly_to_public_key(recipient.pubkey)).unwrap();
+                let decryption_key = encryption::cc20p1305_encrypt(&encryption_key, &shared_secret).unwrap();
+                DecryptionKey{
+                    decryption_key: decryption_key,
+                    receiver: recipient.pubkey
+                }
+            }).collect()
+        )
     }
 }
 
-
-// MOVED TO PlainPost METHOD
-pub fn create_cypherjson(social_root: &str, post: PlainPost)->Result<(String,String),S5Error>{
-    let ds = get_and_update_last_ds();
-    let enc_source = key::child::to_path_str(social_root, &ds).unwrap().xprv;
-    let encryption_key  = key_hash256(&enc_source);
-    let cypher_json = cc20p1305_encrypt(&post.stringify().unwrap(), &encryption_key).unwrap();
-    Ok((ds,cypher_json))
-}
-
-pub fn create_decryption_keys(social_root: &str, derivation_scheme: &str, recipients: Vec<CypherpostIdentity>)->Result<Vec<DecryptionKey>,S5Error>{
-    let enc_source = key::child::to_path_str(social_root, &derivation_scheme).unwrap().xprv;
-    let encryption_key  = key_hash256(&enc_source);
-    let key_pair = ec::keypair_from_xprv_str(&social_root).unwrap();
-    let xonly_pair = ec::XOnlyPair::from_keypair(key_pair);// MUST USE TO ENCFORCE PARITY CHECK
-    let decryption_keys:Vec<DecryptionKey>  = recipients.into_iter().map(|contact|{
-        let shared_secret = ec::compute_shared_secret_str(&xonly_pair.seckey, &contact.pubkey).unwrap();
-        let decryption_key = cc20p1305_encrypt(&encryption_key, &shared_secret).unwrap();
-        DecryptionKey{
-            decryption_key: decryption_key,
-            receiver: contact.pubkey
-        }
-    }).collect();
-    Ok(decryption_keys)
-}
-
-pub fn decrypt_others_posts(others_posts: Vec<CypherPostModel>, social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
-    Ok(others_posts.into_iter().map(|cypherpost|{
-        let my_key_pair = ec::keypair_from_xprv_str(social_root).unwrap();
-        let my_xonly_pair = ec::XOnlyPair::from_keypair(my_key_pair);
-        let shared_secret = ec::compute_shared_secret_str(&my_xonly_pair.seckey, &cypherpost.owner).unwrap();
-        let decryption_key = cc20p1305_decrypt(&cypherpost.decryption_key.unwrap(), &shared_secret).unwrap_or("Bad Key".to_string());
-        let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key)
-        .unwrap_or(PlainPost::new(PostKind::Message, None, PostItem::new(None, "Decryption Error".to_string())).stringify().unwrap());
-
-        PlainPostModel{
-            id: cypherpost.id,
-            genesis: cypherpost.genesis,
-            expiry: cypherpost.expiry,
-            owner: cypherpost.owner,
-            plain_post: PlainPost::structify(&plain_json_string).unwrap(),
-        }
-    }).collect())
-}
-pub fn decrypt_my_posts(my_posts: Vec<CypherPostModel>, social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
-    Ok(my_posts.into_iter().map(|cypherpost|{
-        let decryption_key_root = child::to_path_str(social_root, &cypherpost.derivation_scheme).unwrap();
-        let decryption_key = key_hash256(&decryption_key_root.xprv);
-        let plain_json_string = cc20p1305_decrypt(&cypherpost.cypher_json, &decryption_key)
-        .unwrap_or(PlainPost::new(PostKind::Message, None, PostItem::new(None, "Decryption Error".to_string())).stringify().unwrap());
-        
-        PlainPostModel{
-            id: cypherpost.id,
-            genesis: cypherpost.genesis,
-            expiry: cypherpost.expiry,
-            owner: cypherpost.owner,
-            plain_post: PlainPost::structify(&plain_json_string).unwrap(),
-        }
-    }).collect())
-}
-pub fn update_and_organize_posts(my_posts: Vec<CypherPostModel>, others_posts: Vec<CypherPostModel>,social_root: &str)->Result<Vec<PlainPostModel>,S5Error>{
-    let mut all_posts = decrypt_my_posts(my_posts, social_root).unwrap();
-    let mut others_posts = decrypt_others_posts(others_posts, social_root).unwrap();
-    all_posts.append(&mut others_posts);
-    all_posts.sort_by_key(|post| post.genesis);
-    cypherpost::storage::create_posts(all_posts.clone()).unwrap();
-    Ok(all_posts)
-}

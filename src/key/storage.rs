@@ -5,8 +5,6 @@ use std::str;
 pub fn create(key_store_cipher: String)->Result<bool, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey).unwrap();
     let main_tree = sleddb::get_tree(db, "keys").unwrap();
-    // TODO!!! check if tree contains data, do not insert
-
     main_tree.insert("0", key_store_cipher.as_bytes()).unwrap();
     Ok(true)
 }
@@ -23,7 +21,7 @@ pub fn read()->Result<String, S5Error>{
             }
             } else {
             db.drop_tree(&tree.name()).unwrap();
-                Err(S5Error::new(ErrorKind::Input, "No master_key index found in key tree"))
+                Err(S5Error::new(ErrorKind::Input, "No such index found in key tree"))
             }
         }
         Err(_)=>{
@@ -65,10 +63,8 @@ mod tests {
     assert_eq!(keystore.money,money_key.xprv);
     let status = delete();
     assert!(status);
-    let keystore_error = read().unwrap_err();
-    assert_eq!(keystore_error.message,"No master_key index found in key tree");
-    assert_eq!(keystore_error.kind,ErrorKind::Input.to_string());
-
+    let keystore_error = read().is_err();
+    assert!(keystore_error);
   }
 
 }
