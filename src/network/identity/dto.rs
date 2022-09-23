@@ -57,7 +57,7 @@ pub fn register(host: &str,keypair: XOnlyPair, invite_code: &str, username: &str
     let full_url = host.to_string() + &APIEndPoint::Identity.to_string();
     let nonce = nonce();
     let signature = sign_request(keypair.clone(), HttpMethod::Post, APIEndPoint::Identity, &nonce).unwrap();
-    let body = IdentityRegisterRequest::new(username);
+    let body = IdentityRegisterRequest::new(&username.to_lowercase());
 
     match ureq::post(&full_url)
         .set(&HttpHeader::ClientInvite.to_string(), invite_code)

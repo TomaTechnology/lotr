@@ -1,16 +1,15 @@
 use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
-use crate::cypherpost::model::{PlainPostModel};
-use crate::cypherpost::model::{ServerPreferences,AllPosts, AllContacts,CypherpostIdentity};
+use crate::network::model::{LocalPostModel};
 
-pub fn create_posts(post_models: Vec<PlainPostModel>)->Result<bool, S5Error>{
+pub fn create_posts(post_models: Vec<LocalPostModel>)->Result<bool, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
     let main_tree = sleddb::get_tree(db, "posts").unwrap();
     let bytes = bincode::serialize(&post_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
-pub fn read_posts()->Result<AllPosts,S5Error>{
+pub fn read_posts()->Result<Vec<LocalPostModel>,S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
     match sleddb::get_tree(db.clone(), "posts"){
         Ok(tree)=>{
@@ -26,7 +25,7 @@ pub fn read_posts()->Result<AllPosts,S5Error>{
             } else {
                 db.drop_tree(&tree.name()).unwrap();
                 tree.flush().unwrap();
-                Err(S5Error::new(ErrorKind::Input, "No AllPosts found in posts tree"))
+                Err(S5Error::new(ErrorKind::Input, "No such index found in posts tree"))
             }
         }
         Err(_)=>{
@@ -43,8 +42,6 @@ pub fn delete_posts()->bool{
     db.drop_tree(&tree.name()).unwrap();
     true
 }
-
-
 
 #[cfg(test)]
 mod tests {

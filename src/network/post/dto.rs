@@ -216,8 +216,8 @@ impl ServerPostModelResponse{
 }
 
 fn my_posts(host: &str,key_pair: XOnlyPair, filter: Option<u64>)->Result<Vec<ServerPostModel>, S5Error>{
-    let filter = if filter.is_some(){filter.unwrap()}else{0};
-    let full_url = host.to_string() + &APIEndPoint::Post(Some("self".to_string())).to_string() + "?genesis_filter=" + &filter.to_string();
+    let filter = if filter.is_some(){"?genesis_filter=".to_string() + &filter.unwrap().to_string()}else{"".to_string()};
+    let full_url = host.to_string() + &APIEndPoint::Post(Some("self".to_string())).to_string() + &filter;
     let nonce = nonce();
     let signature = sign_request(key_pair.clone(), HttpMethod::Get, APIEndPoint::Post(Some("self".to_string())), &nonce).unwrap();
 
@@ -242,8 +242,8 @@ fn my_posts(host: &str,key_pair: XOnlyPair, filter: Option<u64>)->Result<Vec<Ser
 }
 
 fn others_posts(host: &str,key_pair: XOnlyPair, filter: Option<u64>)->Result<Vec<ServerPostModel>, S5Error>{
-    let filter = if filter.is_some(){filter.unwrap()}else{0};
-    let full_url = host.to_string() + &APIEndPoint::Post(Some("others".to_string())).to_string() + "?genesis_filter=" + &filter.to_string();
+    let filter = if filter.is_some(){"?genesis_filter=".to_string() + &filter.unwrap().to_string()}else{"".to_string()};
+    let full_url = host.to_string() + &APIEndPoint::Post(Some("others".to_string())).to_string() + &filter;
 
     let nonce = nonce();
     let signature = sign_request(key_pair.clone(), HttpMethod::Get, APIEndPoint::Post(Some("others".to_string())), &nonce).unwrap();
@@ -324,133 +324,83 @@ pub fn single_post(host: &str,key_pair: XOnlyPair,post_id: &str)->Result<ServerP
 
 
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::cypherpost::identity::{admin_invite,register,get_all};
-//     use crate::key::ec;
-//     use crate::key::seed;
-//     use crate::key::child;
-//     use crate::cypherpost::model::{PlainPost,PostKind,PostItem};
-//     use crate::key::encryption::{cc20p1305_encrypt, key_hash256};
-//     use crate::cypherpost::handler::{decrypt_my_posts,decrypt_others_posts};
-//     use bdk::bitcoin::network::constants::Network;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::network::identity::dto::{admin_invite,register,get_all};
+    use crate::key::ec;
+    use crate::key::seed;
+    use crate::key::child;
+    use crate::network::post::model::{Post,Payload,Recipient};
+    use bdk::bitcoin::network::constants::Network;
     
-//     #[test] #[ignore]
-//     fn test_post_flow(){
-//         let url = "http://localhost:3021";
-//         // ADMIN INVITE
-//         let admin_invite_code = "098f6bcd4621d373cade4e832627b4f6";
-//         let client_invite_code1 = admin_invite(url,admin_invite_code).unwrap();
-//         assert_eq!(client_invite_code1.len() , 32);
+    #[test]
+    fn test_post_flow(){
+        let url = "http://localhost:3021";
+        // ADMIN INVITE
+        let admin_invite_code = "098f6bcd4621d373cade4e832627b4f6";
+        let client_invite_code1 = admin_invite(url,admin_invite_code).unwrap();
+        assert_eq!(client_invite_code1.len() , 32);
         
-//         let client_invite_code2 = admin_invite(url,admin_invite_code).unwrap();
-//         assert_eq!(client_invite_code1.len() , 32);
+        let client_invite_code2 = admin_invite(url,admin_invite_code).unwrap();
+        assert_eq!(client_invite_code1.len() , 32);
 
-//         let client_invite_code3 = admin_invite(url,admin_invite_code).unwrap();
-//         assert_eq!(client_invite_code1.len() , 32);
+        let client_invite_code3 = admin_invite(url,admin_invite_code).unwrap();
+        assert_eq!(client_invite_code1.len() , 32);
 
-//         // REGISTER USERS
-//         let social_root_scheme = "m/128h/0h";
+        // REGISTER USERS
+        let social_root_scheme = "m/128h/0h";
 
-//         let mut rng = thread_rng();
-//         let random = rng.gen::<u64>();
-//         let nonce = random.to_string();
+        let nonce = nonce();
 
-//         let seed1 = seed::generate(24, "", Network::Bitcoin).unwrap();
-//         let social_child1 = child::to_path_str(&seed1.xprv, social_root_scheme).unwrap();
-//         let key_pair1 = ec::keypair_from_xprv_str(&social_child1.xprv).unwrap();
-//         let xonly_pair1 = ec::XOnlyPair::from_keypair(key_pair1);
-//         let user1 = "builder".to_string() + &nonce[0..3];
+        let seed1 = seed::generate(24, "", Network::Bitcoin).unwrap();
+        let social_child1 = child::to_path_str(seed1.xprv, social_root_scheme).unwrap();
+        let xonly_pair1 = ec::XOnlyPair::from_xprv(social_child1.xprv);
+        let user1 = "builder".to_string() + &nonce[0..3];
 
-//         let response = register(url, key_pair1, &client_invite_code1, &user1).unwrap();
-//         assert!(response.status);
-
-//         let seed2 = seed::generate(24, "", Network::Bitcoin).unwrap();
-//         let social_child2 = child::to_path_str(&seed2.xprv, social_root_scheme).unwrap();
-//         let key_pair2 = ec::keypair_from_xprv_str(&social_child2.xprv).unwrap();
-//         let xonly_pair2 = ec::XOnlyPair::from_keypair(key_pair2);
-//         let user2 = "facilitator".to_string() + &nonce[0..3];
+        assert!(register(url, xonly_pair1.clone(), &client_invite_code1, &user1).is_ok());
         
-//         let response = register(url, key_pair2, &client_invite_code2, &user2).unwrap();
-//         assert!(response.status);
-
-//         let seed3 = seed::generate(24, "", Network::Bitcoin).unwrap();
-//         let social_child3 = child::to_path_str(&seed3.xprv, social_root_scheme).unwrap();
-//         let key_pair3 = ec::keypair_from_xprv_str(&social_child3.xprv).unwrap();
-//         let xonly_pair3 = ec::XOnlyPair::from_keypair(key_pair3);
-//         let user3 = "escrow".to_string() + &nonce[0..3];
+        let seed2 = seed::generate(24, "", Network::Bitcoin).unwrap();
+        let social_child2 = child::to_path_str(seed2.xprv, social_root_scheme).unwrap();
+        let xonly_pair2 = ec::XOnlyPair::from_xprv(social_child2.xprv);
+        let user2 = "facilitator".to_string() + &nonce[0..3];
         
-//         let response = register(url, key_pair3, &client_invite_code3, &user3).unwrap();
-//         assert!(response.status);
+        assert!(register(url, xonly_pair2.clone(), &client_invite_code2, &user2).is_ok());
 
-//         // GET ALL USERS
-//         let identities = get_all(url, key_pair1).unwrap();
-//         let user_count = identities.len();
-//         assert!(user_count>0);
-//         println!("{:#?}", response);
+        let seed3 = seed::generate(24, "", Network::Bitcoin).unwrap();
+        let social_child3 = child::to_path_str(seed3.xprv, social_root_scheme).unwrap();
+        let xonly_pair3 = ec::XOnlyPair::from_xprv(social_child3.xprv);
+        let user3 = "escrow".to_string() + &nonce[0..3];
+        
+        assert!(register(url, xonly_pair3.clone(), &client_invite_code3, &user3).is_ok());
 
-//         // Create a struct to share
-//         let xpub_to_share = PlainPost::new(
-//             PostKind::Pubkey,
-//             None,
-//             PostItem::new(
-//                 Some("xkey".to_string()), "xpubsomesomerands".to_string()
-//             )
-//         );
-    
-//         // Json stringify it
-//         let stringy_xpub = xpub_to_share.stringify().unwrap();
-//         // Create an encryption key for it using a derivation_scheme from mk
-//         let encryption_key_scheme = "m/1h/0h";
+        // GET ALL USERS
+        let identities = get_all(url,xonly_pair3.clone()).unwrap();
+        let user_count = identities.len();
+        assert!(user_count>0);
 
-//         let encryption_key_source = child::to_path_str(&social_child1.xprv, encryption_key_scheme).unwrap();
-//         let encryption_key  = key_hash256(&encryption_key_source.xprv);
-//         // Encrypt it into cypherjson
-//         let cypher_json = cc20p1305_encrypt(&stringy_xpub, &encryption_key).unwrap();
-//         // PUT cypherjson
-//         let cpost_req = ServerPostRequest::new(0, encryption_key_scheme,&cypher_json);
-//         let post_id = create(url,key_pair1, cpost_req).unwrap();
-//         assert_eq!(post_id.len(), 24);
-//         // calculate shared secrets with recipients
-//         let user12ss = ec::compute_shared_secret_str(&xonly_pair1.seckey, &xonly_pair2.pubkey).unwrap();
-//         let user21ss = ec::compute_shared_secret_str(&xonly_pair2.seckey, &xonly_pair1.pubkey).unwrap();
-//         assert_eq!(user21ss, user12ss);
+        // Create a struct to share
+        let message_to_share = Payload::Message("Hello :)".to_string());
+        let post = Post::new(Recipient::Direct(xonly_pair3.clone().pubkey), message_to_share, xonly_pair1.clone()); 
+        let encryption_key_scheme = "m/1h/0h";
+        let cypher_json = post.to_cypher(social_child1.xprv, encryption_key_scheme);
+        let cpost_req = ServerPostRequest::new(0, encryption_key_scheme,&cypher_json);
+        let post_id = create(url,xonly_pair1.clone(), cpost_req).unwrap();
+        assert_eq!(post_id.len(), 24);
+        let decrypkeys = DecryptionKey::make_for_many([xonly_pair2.clone().pubkey,xonly_pair3.clone().pubkey].to_vec(), social_child1.xprv, encryption_key_scheme).unwrap();
+        assert!(keys(url, xonly_pair1.clone(), &post_id,decrypkeys).is_ok());
+        // Get posts & keys as user2
+        let posts = get_all_posts(url, social_child2.xprv, None).unwrap();
+        assert_eq!(posts.len(),1);
+        // Get posts & keys as user3
+        let posts = get_all_posts(url, social_child3.xprv, None).unwrap();
+        assert_eq!(posts.len(),1);
+        // Get posts as self
+        let posts = get_all_posts(url, social_child1.xprv, None).unwrap();
+        assert_eq!(posts.len(),1);
+        // Delete post
+        assert!(remove(url,xonly_pair1.clone(), &post_id).is_ok());
+        // KEEP BUILDING!
 
-//         let user13ss = ec::compute_shared_secret_str(&xonly_pair1.seckey, &xonly_pair3.pubkey).unwrap();
-//         // encrypt encryption key with shared secrets and create decryption_keys
-//         let decryption_key12 = DecryptionKey::new(&cc20p1305_encrypt(&encryption_key, &user12ss).unwrap(), &xonly_pair2.pubkey);
-//         let decryption_key13 = DecryptionKey::new(&cc20p1305_encrypt(&encryption_key, &user13ss).unwrap(), &xonly_pair3.pubkey);
-//         let decryption_keys: Vec<DecryptionKey> = [decryption_key12,decryption_key13].to_vec();
-//         // PUT post_keys
-//         let response = keys(url, key_pair1, &post_id,decryption_keys).unwrap();
-//         assert!(response.status);
-//         // Get posts & keys as user2
-//         let posts = others_posts(url,key_pair2).unwrap();
-//         assert_eq!(posts.len(),1);
-//         println!("{:#?}",posts);
-//         let decrypted = decrypt_others_posts(posts, &social_child2.xprv).unwrap();
-//         assert_eq!(decrypted.len(),1);
-//         assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
-
-//         // Get posts & keys as user3
-//         let posts = others_posts(url,key_pair3).unwrap();
-//         assert_eq!(posts.len(),1);
-//         println!("{:#?}",posts);
-//         let decrypted = decrypt_others_posts(posts, &social_child3.xprv).unwrap();
-//         assert_eq!(decrypted.len(),1);
-//         assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
-
-//         // Get posts as self
-//         let posts = my_posts(url,key_pair1).unwrap();
-//         assert_eq!(posts.len(),1);
-//         let decrypted = decrypt_my_posts(posts, &social_child1.xprv).unwrap();
-//         assert_eq!(decrypted.len(),1);
-//         assert_eq!(decrypted[0].plain_post.stringify().unwrap(),stringy_xpub);
-//         // Delete post
-//         let status = remove(url,key_pair1, &post_id).unwrap();
-//         assert!(status);
-//         // KEEP BUILDING!
-
-//     }
-// }
+    }
+}

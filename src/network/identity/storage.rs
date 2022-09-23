@@ -22,12 +22,12 @@ pub fn read_all_members()->Result<Vec<MemberIdentity>,S5Error>{
                     tree.flush().unwrap();
                     Ok(members)
                 },
-                None => Err(S5Error::new(ErrorKind::Internal, "No AllMembers found in posts tree"))
+                None => Err(S5Error::new(ErrorKind::Internal, "No AllMembers found in members tree"))
             }
             } else {
                 db.drop_tree(&tree.name()).unwrap();
                 tree.flush().unwrap();
-                Err(S5Error::new(ErrorKind::Input, "No AllMembers found in members tree"))
+                Err(S5Error::new(ErrorKind::Input, "No such index found in members tree"))
             }
         }
         Err(_)=>{
@@ -76,12 +76,12 @@ pub fn read_my_identity()->Result<MemberIdentity,S5Error>{
                     tree.flush().unwrap();
                     Ok(me)
                 },
-                None => Err(S5Error::new(ErrorKind::Internal, "No MemberIdentity found in posts tree"))
+                None => Err(S5Error::new(ErrorKind::Internal, "No MemberIdentity found in me tree"))
             }
             } else {
                 db.drop_tree(&tree.name()).unwrap();
                 tree.flush().unwrap();
-                Err(S5Error::new(ErrorKind::Input, "No MemberIdentity found in members tree"))
+                Err(S5Error::new(ErrorKind::Input, "No such index found in me tree"))
             }
         }
         Err(_)=>{
@@ -104,7 +104,7 @@ pub fn delete_my_identity()->bool{
 mod tests {
   use super::*;
   use crate::key::ec;
-  
+
   #[test]
   fn test_identity_store(){
     let me = MemberIdentity{

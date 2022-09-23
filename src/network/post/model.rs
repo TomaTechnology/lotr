@@ -155,17 +155,17 @@ impl DecryptionKey{
         }
     }
 
-    pub fn make_for_many(recipients: Vec<MemberIdentity>,social_root: ExtendedPrivKey, derivation_scheme: &str)->Result<Vec<DecryptionKey>,S5Error>{
+    pub fn make_for_many(recipients: Vec<XOnlyPublicKey>,social_root: ExtendedPrivKey, derivation_scheme: &str)->Result<Vec<DecryptionKey>,S5Error>{
         let enc_source = child::to_path_str(social_root, &derivation_scheme).unwrap().xprv.to_string();
         let encryption_key  = key_hash256(&enc_source);
         let xonly_pair = XOnlyPair::from_xprv(social_root);
         Ok(
             recipients.into_iter().map(|recipient|{
-                let shared_secret = xonly_pair.compute_shared_secret(xonly_to_public_key(recipient.pubkey)).unwrap();
+                let shared_secret = xonly_pair.compute_shared_secret(xonly_to_public_key(recipient)).unwrap();
                 let decryption_key = encryption::cc20p1305_encrypt(&encryption_key, &shared_secret).unwrap();
                 DecryptionKey{
                     decryption_key: decryption_key,
-                    receiver: recipient.pubkey
+                    receiver: recipient
                 }
             }).collect()
         )
