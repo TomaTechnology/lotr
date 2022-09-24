@@ -3,20 +3,23 @@
 #[macro_use] 
 extern crate text_io;
 
+use::std::fs;
+
 use clap::{App, AppSettings, Arg, Command};
 extern crate rpassword;    
 use rpassword::read_password;
 use std::io::Write;
 use std::fmt::Debug;
-
-// use bitcoin::network::constants::Network;
+use bitcoin::network::constants::Network;
 
 mod lib;
 use crate::lib::e::{ErrorKind};
 use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_TESTNET_NODE};
 
 mod key;
+use crate::key::ec::{XOnlyPair};
 mod network;
+use network::identity;
 mod settings;
 use crate::settings::model::{MySettings,ServerKind};
 
@@ -65,8 +68,23 @@ fn main() {
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     Command::new("join")
-                    .about("Register your key as a given username.")
+                    .about("Register as a given username.")
+                    .display_order(0) 
+                )                
+                .subcommand(
+                    Command::new("aliases")
+                    .about("Manage your aliases")
                     .display_order(1) 
+                    .subcommand(
+                        Command::new("list")
+                        .about("List your aliases.")
+                        .display_order(0) 
+                    ) 
+                    .subcommand(
+                        Command::new("remove")
+                        .about("Remove an alias.")
+                        .display_order(0) 
+                    ) 
                 )
                 .subcommand(
                     Command::new("members")
@@ -263,10 +281,158 @@ fn main() {
         Some(("network", service_matches)) => {
             match service_matches.subcommand() {
                 Some(("invite", _)) => {
-                    
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                            return;
+                        } 
+                    };
+                    let host = settings.network_url_parse(ServerKind::Standard);                    
+                    print!("Enter admin secret key: ");
+                    std::io::stdout().flush().unwrap();
+                    let admin_secret = read_password().unwrap();
+                    match identity::dto::admin_invite(&host, &admin_secret){
+                        Ok(invite_code)=>{
+                            fmt_print(&format!("INVITE CODE: {}", invite_code));
+                        }
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                        }
+                    }     
                 }
                 Some(("join", _)) => {
-                   
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            if e.kind == ErrorKind::NoResource.to_string(){
+                                fmt_print("SETTINGS REQUIRED!");
+                                return;
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return;
+                            }
+                        } 
+                    };
+                    let host = settings.network_url_parse(ServerKind::Standard);                    
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                    }
+
+                    print!("Choose a unique username (12 alphanumeric characters only): ");
+                    let username: String = read!("{}\n");
+
+                    print!("Paste your invite code: ");
+                    std::io::stdout().flush().unwrap();
+                    let invite_code = read_password().unwrap();
+
+                    let existing_users = identity::storage::get_username_indexes();
+                    if existing_users.contains(&username.clone()){
+                        fmt_print("USER ALREADY EXISTS");
+                        return
+                    }
+                    if &existing_users.len() > &0 {
+                        fmt_print_struct("Existing Local Users:", existing_users.clone());
+                    } 
+
+                    let seed = key::seed::generate(24, "", Network::Bitcoin).unwrap();
+                    let identity = identity::model::UserIdentity::new(username.clone(), seed.xprv);
+                    let keypair = XOnlyPair::from_xprv(identity.social_root);
+                    
+                    match identity::dto::register(&host, keypair, &invite_code, &username){
+                        Ok(_)=>{
+                            identity::storage::create_my_identity(identity.clone(),password).unwrap();
+                            println!("WRITE DOWN YOUR MASTER KEY DATA!\n\nMnemonic: {}\n\nFingerprint: {}", seed.mnemonic.to_string(),seed.fingerprint);
+                            fmt_print("USER REGISTERED!");
+                        }
+                        Err(e)=>{
+                            if e.kind == ErrorKind::Input.to_string(){
+                                fmt_print("BAD INPUTS!\nCheck the username and invite code used!");
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                            }
+                        }
+                    }  
+                }
+                Some(("aliases", sub_matches)) => {
+                    match sub_matches.subcommand(){
+                        Some(("list", _))=>{
+                            let aliases = identity::storage::get_username_indexes();
+                            if &aliases.len() > &0 {
+                                fmt_print_struct("Existing aliases:", aliases.clone());
+                            }
+                            else{
+                                fmt_print("You have 0 existing aliases!");
+                            }
+                        }
+                        Some(("remove", _))=>{
+                            let aliases = identity::storage::get_username_indexes();
+                            if &aliases.len() > &0 {
+                                fmt_print_struct("Existing aliases:", aliases.clone());
+                            }
+                            else{
+                                fmt_print("You have 0 existing aliases!");
+                                return
+                            }
+                            let settings = match settings::storage::read(){
+                                Ok(value)=>value,
+                                Err(e)=>{
+                                    if e.kind == ErrorKind::NoResource.to_string(){
+                                        fmt_print("SETTINGS REQUIRED!");
+                                        return;
+                                    }
+                                    else{
+                                        fmt_print_struct("ERRORED!",e);
+                                        return;
+                                    }
+                                } 
+                            };
+                            let host = settings.network_url_parse(ServerKind::Standard);                    
+
+                            print!("Enter your password: ");
+                            std::io::stdout().flush().unwrap();
+                            let password = read_password().unwrap();   
+
+                            if !settings.check_password(password.clone()) {
+                                fmt_print("BAD PASSWORD");
+                            }
+
+                            print!("Enter username/alias to remove: ");
+                            let username: String = read!("{}\n");
+                            if aliases.contains(&username.clone()){
+                                let identity = identity::storage::read_my_identity(username.clone(), password).unwrap();
+                                match identity::dto::remove(&host, identity.to_xonly_pair()){
+                                    Ok(_)=>{
+                                        identity::storage::delete_my_identity(username);
+                                        fmt_print("ALIAS REMOVED!");
+                                    }
+                                    Err(e)=>{
+                                        if e.kind == ErrorKind::Input.to_string(){
+                                            fmt_print("BAD INPUTS!\nCheck the username used!");
+                                        }
+                                        else{
+                                            fmt_print_struct("ERRORED!",e);
+                                        }
+                                    }
+                                }  
+                                return
+                            }
+                            else{
+                                return
+                            }
+        
+                        }
+                        _ => unreachable!(),
+
+                    }
+
+
                 }
                 Some(("leave", _)) => {
                     
@@ -316,33 +482,16 @@ fn main() {
             }
         }
         Some(("guide", _)) => {
+            let base_path = env!("CARGO_MANIFEST_DIR").to_string() + "/art/wolf.ascii";
             let title = "Leverage ✠f The Remnants";
             let subtitle = "A bitcoin contract co-ordination tool.";
-            let p1 = "The 'lotr' tool contains 3 primary commands: key, network and contract.";
-           
-            let p2 = "Start by creating a key pair using the generate sub-command.\n";
-            let p3 = "Your keys are encrypted on your system with a password you set. This password will be required for many critical operations.\n";
-
-            let p6 = "The next step is to setup preferences. Primarily set the url for a cypherpost network server; using the prefs sub-command.\n";
-            let p8 = "If you are the admin; use invite to generate invite codes for other users. Ask an admin for an invite code if not.\n";
-            let p9 = "After you aquire an invite code, use it with the join sub-command.\n";
-            let p10 = "After joining you can view others on the server using the members sub-command.\n";
-            let p11 = "You can then use the sync sub-command to open a message stream and the post sub-command to message other members.\n";
-
+            let contents = fs::read_to_string(&base_path)
+                .expect("Should have been able to read the file");
+            
             println!("\x1b[93;1m{}\x1b[0m", title);
             println!("{}", subtitle);
-            println!("{}", p1);
-            println!("\x1b[92;1mkey\x1b[0m",);
-            println!("{}", p2);
-            println!("{}", p3);
-            println!("\x1b[92;1mnetwork\x1b[0m",);
-            println!("{}", p6);
-            println!("{}", p8);
-            println!("{}", p9);
-            println!("{}", p10);
-            println!("{}", p11);
-            println!("\x1b[92;1mcontract\x1b[0m",);
-            println!("COMING SOON!");
+            println!("{contents}");
+            println!("COMPLETE GUIDE COMING SOON!");
         }
 
         None => println!("No subcommand was used. try `lotr help`."), 

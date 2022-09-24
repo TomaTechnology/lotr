@@ -2,17 +2,17 @@ use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
 use crate::network::identity::model::{MemberIdentity,UserIdentity};
 use bitcoin::secp256k1::{XOnlyPublicKey};
-use std::str::from_utf8;
+use std::str;
 
 pub fn create_members(member_models: Vec<MemberIdentity>)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Members).unwrap();
     let main_tree = sleddb::get_tree(db, "members").unwrap();
     let bytes = bincode::serialize(&member_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
 pub fn read_all_members()->Result<Vec<MemberIdentity>,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Members).unwrap();
     match sleddb::get_tree(db.clone(), "members"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -50,7 +50,7 @@ pub fn get_username_by_pubkey(mut members: Vec<MemberIdentity>, pubkey: XOnlyPub
 
 }
 pub fn delete_members()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Members).unwrap();
     let tree = sleddb::get_tree(db.clone(), "members").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -60,13 +60,13 @@ pub fn delete_members()->bool{
 
 pub fn create_my_identity(user: UserIdentity, password: String)->Result<bool, S5Error>{
     let entry = user.clone().encrypt(password);
-    let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
     let main_tree = sleddb::get_tree(db, &user.username).unwrap();
     main_tree.insert("0", entry.as_bytes()).unwrap();
     Ok(true)
 }
 pub fn read_my_identity(username: String, password: String)->Result<UserIdentity,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
     match sleddb::get_tree(db.clone(), &username){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -90,7 +90,7 @@ pub fn read_my_identity(username: String, password: String)->Result<UserIdentity
 }
 
 pub fn delete_my_identity(username: String)->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
     let tree = sleddb::get_tree(db.clone(), &username).unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -98,7 +98,19 @@ pub fn delete_my_identity(username: String)->bool{
     true
 }
 
-
+pub fn get_username_indexes() -> Vec<String>{
+    let root = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
+    let mut usernames: Vec<String> = [].to_vec();
+    for key in root.tree_names().iter() {
+        let username = str::from_utf8(key).unwrap();
+        if username.starts_with("__"){
+        }
+        else{
+            usernames.push(username.to_string());
+        };
+    }
+    usernames
+}
 #[cfg(test)]
 mod tests {
   use super::*;

@@ -21,6 +21,15 @@ pub struct UserIdentity{
 }
 
 impl UserIdentity {
+    pub fn new(username: String, root: ExtendedPrivKey)->Self{
+        let social_path = "m/128h/0h";
+        let social_root = child::to_path_str(root, social_path).unwrap().xprv;
+        UserIdentity{
+            username,
+            social_root,
+            last_path: "m/1h/0h".to_string()
+        }
+    }
     pub fn stringify(&self) -> Result<String, S5Error> {
         match serde_json::to_string(self) {
             Ok(result) => Ok(result),

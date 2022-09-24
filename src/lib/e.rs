@@ -28,6 +28,13 @@ impl Display for ErrorKind {
   }
 }
 
+impl PartialEq for ErrorKind {
+  fn eq(&self,rs: &ErrorKind) -> bool {
+    self.to_string() == rs.to_string()
+  }
+}
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct S5Error {
   pub kind: String,
