@@ -1,29 +1,46 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#[macro_use] 
+extern crate text_io;
+
 use clap::{App, AppSettings, Arg, Command};
 extern crate rpassword;    
 use rpassword::read_password;
 use std::io::Write;
-use bitcoin::network::constants::Network;
+use std::fmt::Debug;
 
-
+// use bitcoin::network::constants::Network;
 
 mod lib;
-use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind};
+use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_TESTNET_NODE};
 
 mod key;
-use crate::key::seed;
-use crate::key::child;
-use crate::key::ec;
-
 mod network;
-use crate::network::identity;
-use crate::network::post;
-use crate::network::notification;
-use crate::network::badge;
+mod settings;
+use crate::settings::model::{MySettings,ServerKind};
 
-use tungstenite::{Message};
+// use crate::lib::sleddb;
+// use crate::key::seed::{};
+// use crate::key::child::{};
+// use crate::key::ec::{};
+// use crate::network::identity::{};
+// use crate::network::post::{};
+// use crate::network::notification::{};
+// use crate::network::badge::{};
 
+// use tungstenite::{Message};
+
+fn fmt_print(message: &str)->(){
+    println!("=========================================================================");
+    println!("{}",message);
+    println!("=========================================================================");
+}
+fn fmt_print_struct(message: &str, item: impl Debug)->(){
+    println!("=========================================================================");
+    println!("{}\n{:#?}",message,item);
+    println!("=========================================================================");
+}
 
 fn main() {
     let matches = App::new("\x1b[0;92ml✠tr\x1b[0m")
@@ -39,9 +56,7 @@ fn main() {
         .subcommand(
             Command::new("settings")
                 .about("Configure app settings.")
-                .display_order(1)
-                .setting(AppSettings::SubcommandRequiredElseHelp)
- 
+                .display_order(1) 
         )
         .subcommand(
             Command::new("network")
@@ -189,6 +204,60 @@ fn main() {
     
     match matches.subcommand() {
         Some(("settings", _)) => {
+            let existing = settings::storage::read();
+            if *&existing.is_err() {
+                let error = existing.clone().err().unwrap();
+                if error.kind == ErrorKind::NoResource.to_string() {
+                    // promt new settings
+                    fmt_print("CREATING NEW SETTINGS>>>");
+                    print!("Set a password to encrypt sensitve data: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+                    print!("Confirm password: ");
+                    std::io::stdout().flush().unwrap();
+                    let confirm = read_password().unwrap();  
+                    if password != confirm{
+                        fmt_print("PASSWORDS DO NOT MATCH!");
+                        return
+                    }
+                    print!("Enter your network host (default: localhost:3021): ");
+                    let mut network_host: String = read!("{}\n");
+                    if network_host == "" || network_host == " "{
+                        network_host = DEFAULT_TEST_NETWORK.to_string();
+                    }
+                    print!("Enter your bitcoin node host (default: Blockstream Testnet): ");
+                    let mut bitcoin_host: String = read!("{}\n");
+                    if bitcoin_host == "" || bitcoin_host == " "{
+                        bitcoin_host = DEFAULT_TESTNET_NODE.to_string();
+                    }    
+                    let my_settings = MySettings::new(network_host, bitcoin_host, password);
+                    settings::storage::create(my_settings.clone()).unwrap();
+                    fmt_print_struct("CREATED NEW SETTINGS!",my_settings);
+                }
+                else{
+                    println!("INTERNAL ERROR: {}", error.message)
+                }
+            }
+            else {
+                // prompt update settings
+                fmt_print("UPDATING EXISTING SETTINGS>>>");
+                let mut my_settings = existing.unwrap();
+                print!("Enter your network host ({}): ",my_settings.network_host);
+                let network_host: String = read!("{}\n");
+                if network_host == "" || network_host == " "{}
+                else{
+                    my_settings.network_host = network_host;
+                }
+                print!("Enter your bitcoin node host ({}): ",my_settings.bitcoin_host);
+                let bitcoin_host: String = read!("{}\n");
+                if bitcoin_host != "" || bitcoin_host != " "{}
+                else{
+                    my_settings.bitcoin_host = bitcoin_host;
+                }
+
+                settings::storage::create(my_settings.clone()).unwrap();
+                fmt_print_struct("UPDATED!",my_settings);
+            }
         }
 
         Some(("network", service_matches)) => {

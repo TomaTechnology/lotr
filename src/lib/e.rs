@@ -10,6 +10,7 @@ pub enum ErrorKind {
   Wallet,
   Network,
   Input,
+  NoResource,
   Internal,
 }
 
@@ -21,6 +22,8 @@ impl Display for ErrorKind {
       ErrorKind::Key => write!(f, "KeyError"),
       ErrorKind::Wallet => write!(f, "WalletError"),
       ErrorKind::Network => write!(f, "NetworkError"),
+      ErrorKind::NoResource => write!(f, "NoResourceFound"),
+
     }
   }
 }
@@ -45,7 +48,7 @@ impl S5Error {
             400 => ErrorKind::Input,
             401 => ErrorKind::Key,
             403 => ErrorKind::Key,
-            404 => ErrorKind::Network,
+            404 => ErrorKind::NoResource,
             409 => ErrorKind::Input,
             _=> ErrorKind::Internal
         };
