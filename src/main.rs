@@ -413,12 +413,7 @@ fn main() {
                                         fmt_print("ALIAS REMOVED!");
                                     }
                                     Err(e)=>{
-                                        if e.kind == ErrorKind::Input.to_string(){
-                                            fmt_print("BAD INPUTS!\nCheck the username used!");
-                                        }
-                                        else{
-                                            fmt_print_struct("ERRORED!",e);
-                                        }
+                                        fmt_print_struct("ERRORED!",e);
                                     }
                                 }  
                                 return
@@ -431,14 +426,57 @@ fn main() {
                         _ => unreachable!(),
 
                     }
-
-
-                }
-                Some(("leave", _)) => {
-                    
                 }
                 Some(("members", _)) => {
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            if e.kind == ErrorKind::NoResource.to_string(){
+                                fmt_print("SETTINGS REQUIRED!");
+                                return;
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return;
+                            }
+                        } 
+                    };
+                    let host = settings.network_url_parse(ServerKind::Standard);                    
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                    }
+
+                    print!("Which alias to use (username): ");
+                    let username: String = read!("{}\n");
+
+                    let existing_users = identity::storage::get_username_indexes();
+                    if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
                     
+                    let identity = identity::storage::read_my_identity(username, password).unwrap();
+                    let keypair = XOnlyPair::from_xprv(identity.social_root);
+                    match identity::dto::get_all(&host, keypair){
+                        Ok(members)=>{
+                            println!("===============================================");
+                            println!("MEMBERS:");
+                            println!("===============================================");
+                            for id in members.into_iter()
+                            {
+                                println!("\x1b[0;92m{}\x1b[0m:{}\n", id.username,id.pubkey.to_string());
+                            }
+                            println!("===============================================");
+                        }
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                        
+                        }
+                    }  
                 }
                 Some(("announce", _)) => {
                     
@@ -487,10 +525,10 @@ fn main() {
             let subtitle = "A bitcoin contract co-ordination tool.";
             let contents = fs::read_to_string(&base_path)
                 .expect("Should have been able to read the file");
-            
             println!("\x1b[93;1m{}\x1b[0m", title);
             println!("{}", subtitle);
             println!("{contents}");
+            println!("098f6bcd4621d373cade4e832627b4f6");
             println!("COMPLETE GUIDE COMING SOON!");
         }
 
