@@ -6,7 +6,7 @@ use bitcoin::secp256k1::{XOnlyPublicKey};
 use bdk::bitcoin::util::bip32::ExtendedPrivKey;
 use serde::{Deserialize, Serialize};
 use crate::lib::e::{S5Error,ErrorKind};
-use crate::network::identity::model::{MemberIdentity};
+use crate::network::identity::model::{MemberIdentity, UserIdentity};
 use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_MAIN_NETWORK, DEFAULT_MAINNET_NODE, DEFAULT_TESTNET_NODE};
 use bdk::bitcoin::network::constants::Network;
 
@@ -59,9 +59,7 @@ impl Post{
             }
         }
     }
-    pub fn to_cypher(&self, social_root: ExtendedPrivKey, derivation: &str)->String{
-        let enc_source = child::to_path_str(social_root, derivation).unwrap().xprv.to_string();
-        let encryption_key  = encryption::key_hash256(&enc_source);
+    pub fn to_cypher(&self, encryption_key: String)->String{
         let cypher = encryption::cc20p1305_encrypt(&self.stringify().unwrap(), &encryption_key).unwrap();
         cypher
     }
@@ -86,7 +84,6 @@ pub enum Payload {
     Ping, // All contracts start with a ping
     ChecksumPong(String), // All pings responded with pong and checksum proof.
     Message(String),
-    Preferences(AppPreferences),
     // Comment(Comment), // comment on another post
     // PolicyXpub(PolicyXpub),
     // Address(WalletAddress),
@@ -99,48 +96,11 @@ impl Payload {
             Payload::Ping=>"Ping".to_string(),
             Payload::ChecksumPong(checksum)=>checksum.to_string(),
             Payload::Message(text)=>text.to_string(),
-            Payload::Preferences(prefs)=>prefs.stringify().unwrap()
+            // Payload::Preferences(prefs)=>prefs.stringify().unwrap()
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AppPreferences {
-    bitcoin_host: String,
-    network_host: String,
-    socks5: Option<u32>,
-    last_derivation_path: String,
-    muted: Vec<String>, 
-}
-
-impl AppPreferences {
-    pub fn default(network: Network)->Self{
-        match network {
-            Network::Bitcoin=>AppPreferences{
-                bitcoin_host: DEFAULT_MAINNET_NODE.to_string(),
-                network_host: DEFAULT_MAIN_NETWORK.to_string(),
-                socks5: None,
-                last_derivation_path: "m/1h/0h".to_string(),
-                muted: [].to_vec()
-            },
-            _=>AppPreferences{
-                bitcoin_host: DEFAULT_TESTNET_NODE.to_string(),
-                network_host: DEFAULT_TEST_NETWORK.to_string(),
-                socks5: None,
-                last_derivation_path: "m/1h/0h".to_string(),
-                muted: [].to_vec()
-            }
-        }
-    }
-    pub fn stringify(&self) -> Result<String, S5Error> {
-        match serde_json::to_string(self) {
-            Ok(result) => Ok(result),
-            Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying AppPreferences"))
-            }
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DecryptionKey{
@@ -155,13 +115,10 @@ impl DecryptionKey{
         }
     }
 
-    pub fn make_for_many(recipients: Vec<XOnlyPublicKey>,social_root: ExtendedPrivKey, derivation_scheme: &str)->Result<Vec<DecryptionKey>,S5Error>{
-        let enc_source = child::to_path_str(social_root, &derivation_scheme).unwrap().xprv.to_string();
-        let encryption_key  = key_hash256(&enc_source);
-        let xonly_pair = XOnlyPair::from_xprv(social_root);
+    pub fn make_for_many(me: XOnlyPair, recipients: Vec<XOnlyPublicKey>,encryption_key: String)->Result<Vec<DecryptionKey>,S5Error>{
         Ok(
             recipients.into_iter().map(|recipient|{
-                let shared_secret = xonly_pair.compute_shared_secret(xonly_to_public_key(recipient)).unwrap();
+                let shared_secret = me.compute_shared_secret(xonly_to_public_key(recipient)).unwrap();
                 let decryption_key = encryption::cc20p1305_encrypt(&encryption_key, &shared_secret).unwrap();
                 DecryptionKey{
                     decryption_key: decryption_key,

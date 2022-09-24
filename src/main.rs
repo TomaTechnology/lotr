@@ -11,6 +11,7 @@ use rpassword::read_password;
 use std::io::Write;
 use std::fmt::Debug;
 use bitcoin::network::constants::Network;
+use bitcoin::secp256k1::{XOnlyPublicKey};
 
 mod lib;
 use crate::lib::e::{ErrorKind};
@@ -20,19 +21,12 @@ mod key;
 use crate::key::ec::{XOnlyPair};
 mod network;
 use network::identity;
+use network::post::{self, model::{Payload,Post,Recipient,DecryptionKey}, dto::{ServerPostRequest, ServerPostModel}};
+
 mod settings;
 use crate::settings::model::{MySettings,ServerKind};
-
-// use crate::lib::sleddb;
-// use crate::key::seed::{};
-// use crate::key::child::{};
-// use crate::key::ec::{};
-// use crate::network::identity::{};
-// use crate::network::post::{};
-// use crate::network::notification::{};
-// use crate::network::badge::{};
-
-// use tungstenite::{Message};
+use std::{thread, time};
+use tungstenite::{Message};
 
 fn fmt_print(message: &str)->(){
     println!("=========================================================================");
@@ -424,7 +418,6 @@ fn main() {
         
                         }
                         _ => unreachable!(),
-
                     }
                 }
                 Some(("members", _)) => {
@@ -463,6 +456,7 @@ fn main() {
                     let keypair = XOnlyPair::from_xprv(identity.social_root);
                     match identity::dto::get_all(&host, keypair){
                         Ok(members)=>{
+                            network::identity::storage::create_members(members.clone()).unwrap();
                             println!("===============================================");
                             println!("MEMBERS:");
                             println!("===============================================");
@@ -485,10 +479,185 @@ fn main() {
                     
                 }
                 Some(("post", _)) => {
-              
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            if e.kind == ErrorKind::NoResource.to_string(){
+                                fmt_print("SETTINGS REQUIRED!");
+                                return;
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return;
+                            }
+                        } 
+                    };
+                    let host = settings.network_url_parse(ServerKind::Standard);                    
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                    }
+
+                    print!("Which alias to use (username): ");
+                    let username: String = read!("{}\n");
+
+                    let existing_users = identity::storage::get_username_indexes();
+                    if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+
+                    print!("To (multiple,recipients,serpated,by,a,comma): ");
+                    let to: String = read!("{}\n");
+                    let to: Vec<String> = to.split(",").map(|s| s.to_string().replace(" ", "")).collect();
+
+                    print!("Message: ");
+                    let message: String = read!("{}\n");
+
+                    let mut to: Vec<XOnlyPublicKey> = match network::identity::storage::read_all_members()
+                    {
+                        Ok(mut result)=>{
+                            result.retain(|x| {
+                                to.contains(&x.username)
+                            });
+                            let xonly_pubs = result.into_iter().map(|item| item.pubkey).collect();
+                            xonly_pubs
+                        }
+                        Err(e)=>{
+                            println!("===============================================");
+                            println!("ERROR::{}",e.message);
+                            println!("===============================================");
+                            return;
+                        }
+                    };
+                    let recipient = if to.len() == 1  {
+                        Recipient::Direct(to.pop().unwrap())
+                    }
+                    else {
+                        Recipient::Group(key::encryption::nonce())
+                    };
+                    let mut identity = identity::storage::read_my_identity(username, password.clone()).unwrap();
+                    let keypair = XOnlyPair::from_xprv(identity.social_root);
+
+                    let message_to_share = Payload::Message(message);
+                    let post = Post::new(recipient, message_to_share, keypair.clone()); 
+                    let encryption_key = identity.derive_encryption_key();
+                    let cypher_json = post.to_cypher(encryption_key.clone());
+                    let cpost_req = ServerPostRequest::new(0, &identity.last_path,&cypher_json);
+
+                    let post_id = match network::post::dto::create(&host, keypair.clone(),cpost_req){
+                        Ok(id)=>{
+                            network::identity::storage::create_my_identity(identity.clone(), password).unwrap();
+                            id
+                        }
+                        Err(e)=>{
+                            if e.kind == ErrorKind::Input.to_string(){
+                                fmt_print("BAD INPUTS!\nCheck the username and invite code used!");
+                                return
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return
+                            }
+                        }
+                    };
+                    let decryption_keys = DecryptionKey::make_for_many(keypair.clone(),to,encryption_key).unwrap();
+                    match network::post::dto::keys(&host, keypair.clone(), &post_id, decryption_keys){
+                        Ok(_)=>{
+                            fmt_print("SUCCESSFULLY POSTED!");
+                            let ws_url = settings.network_url_parse(ServerKind::Websocket);
+                            let mut socket = network::notification::dto::sync(&ws_url, keypair).unwrap();
+                            let ten_millis = time::Duration::from_millis(1000);                            
+                            thread::sleep(ten_millis);
+                            socket.write_message(Message::Text(post_id.into())).unwrap();
+
+                            ()
+                        }
+                        Err(e)=>{
+                            if e.kind == ErrorKind::Input.to_string(){
+                                fmt_print("BAD INPUTS!\nCheck the username and invite code used!");
+                                return
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return
+                            }
+                        }
+                    }
+
                 }
                 Some(("sync", _)) => {
-                    
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            if e.kind == ErrorKind::NoResource.to_string(){
+                                fmt_print("SETTINGS REQUIRED!");
+                                return;
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return;
+                            }
+                        } 
+                    };
+                    let ws_host = settings.network_url_parse(ServerKind::Websocket);      
+                    let host = settings.network_url_parse(ServerKind::Standard);                    
+              
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                    }
+
+                    print!("Which alias to use (username): ");
+                    let username: String = read!("{}\n");
+
+                    let existing_users = identity::storage::get_username_indexes();
+                    if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+                    let identity = identity::storage::read_my_identity(username, password.clone()).unwrap();
+                    let keypair = XOnlyPair::from_xprv(identity.social_root);
+                    println!("Establishing connection with cypherpost server...");
+                    let mut socket = network::notification::dto::sync(&ws_host, keypair.clone()).unwrap();
+                    println!("===============================================");
+                    let all_posts = network::post::dto::get_all_posts(&host, identity.social_root,None).unwrap();
+                    let members = network::identity::storage::read_all_members().unwrap();
+                    for post in all_posts.into_iter(){
+                        println!("\x1b[94;1m{}\x1b[0m :: {}",network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string())
+                    }
+                    loop {
+                        match socket.read_message(){
+                            Ok(msg)=>{
+                                if msg.to_string().starts_with("s5p"){
+                                    let cypherpost_single = network::post::dto::single_post(&host, keypair.clone(), &msg.to_string()).unwrap();
+                                    if cypherpost_single.clone().decryption_key.is_some(){
+                                        let post = cypherpost_single.decypher(identity.social_root).unwrap();
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string());
+                                    }
+                                    else{
+                                        let post = cypherpost_single.decypher(identity.social_root).unwrap();
+                                        println!("\x1b[94;1m{}\x1b[0m :: {}", network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string());
+                                    }
+                                }
+                                else{
+                                    println!(
+                                        "{:#?}",msg.to_string()
+                                    )
+                                }
+                            }
+                            Err(_)=>{
+                                socket = network::notification::dto::sync(&ws_host, keypair.clone()).unwrap()
+                            }
+                        }
+                    }
+ 
                 }
                 _ => unreachable!(),
             }

@@ -59,7 +59,7 @@ impl S5Error {
             409 => ErrorKind::Input,
             _=> ErrorKind::Internal
         };
-        S5Error::new(kind, &response.status_text())
+        S5Error::new(kind, &response.into_string().unwrap())
       }
       _ => { 
         S5Error::new(ErrorKind::Network, "Transport Error. Check your internet connection AND/OR your request object.")

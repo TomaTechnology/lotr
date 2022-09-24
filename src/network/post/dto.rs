@@ -46,7 +46,7 @@ pub fn create(host: &str,key_pair: XOnlyPair, cpost_req: ServerPostRequest)->Res
     let full_url = host.to_string() + &APIEndPoint::Post(None).to_string();
     let nonce = nonce();
     let signature = sign_request(key_pair.clone(), HttpMethod::Put, APIEndPoint::Post(None), &nonce).unwrap();
-
+    
     match ureq::put(&full_url)
         .set(&HttpHeader::Signature.to_string(), &signature)
         .set(&HttpHeader::Pubkey.to_string(), &key_pair.pubkey.to_string())
@@ -268,7 +268,11 @@ fn others_posts(host: &str,key_pair: XOnlyPair, filter: Option<u64>)->Result<Vec
 }
 
 fn process_cypherposts(social_root: ExtendedPrivKey,posts: Vec<ServerPostModel>)->Result<Vec<LocalPostModel>,S5Error>{
-    let mut plains = posts.into_iter().map(|post| post.decypher(social_root).unwrap()).collect::<Vec<LocalPostModel>>();
+    let mut plains = posts.into_iter().map(
+        |post| {
+            post.decypher(social_root).unwrap()
+        }
+    ).collect::<Vec<LocalPostModel>>();
     plains.sort_by_key(|post| post.genesis);
     Ok(plains)
 }
@@ -330,9 +334,9 @@ mod tests {
     use crate::key::child;
     use crate::network::post::model::{Post,Payload,Recipient};
     use bdk::bitcoin::network::constants::Network;
-    
+    use crate::network::identity::model::{UserIdentity};
+
     #[test]
-    #[ignore]
     fn test_post_flow(){
         let url = "http://localhost:3021";
         // ADMIN INVITE
@@ -352,9 +356,9 @@ mod tests {
         let nonce = nonce();
 
         let seed1 = seed::generate(24, "", Network::Bitcoin).unwrap();
-        let social_child1 = child::to_path_str(seed1.xprv, social_root_scheme).unwrap();
-        let xonly_pair1 = ec::XOnlyPair::from_xprv(social_child1.xprv);
         let user1 = "builder".to_string() + &nonce[0..3];
+        let mut my_identity = UserIdentity::new(user1.clone(),seed1.xprv);
+        let xonly_pair1 = ec::XOnlyPair::from_xprv(my_identity.social_root);
 
         assert!(register(url, xonly_pair1.clone(), &client_invite_code1, &user1).is_ok());
         
@@ -380,12 +384,13 @@ mod tests {
         // Create a struct to share
         let message_to_share = Payload::Message("Hello :)".to_string());
         let post = Post::new(Recipient::Direct(xonly_pair3.clone().pubkey), message_to_share, xonly_pair1.clone()); 
-        let encryption_key_scheme = "m/1h/0h";
-        let cypher_json = post.to_cypher(social_child1.xprv, encryption_key_scheme);
-        let cpost_req = ServerPostRequest::new(0, encryption_key_scheme,&cypher_json);
+        let encryption_key = my_identity.derive_encryption_key();
+        println!("{encryption_key}");
+        let cypher_json = post.to_cypher(encryption_key.clone());
+        let cpost_req = ServerPostRequest::new(0, &my_identity.last_path,&cypher_json);
         let post_id = create(url,xonly_pair1.clone(), cpost_req).unwrap();
         assert_eq!(post_id.len(), 24);
-        let decrypkeys = DecryptionKey::make_for_many([xonly_pair2.clone().pubkey,xonly_pair3.clone().pubkey].to_vec(), social_child1.xprv, encryption_key_scheme).unwrap();
+        let decrypkeys = DecryptionKey::make_for_many(xonly_pair1.clone(),[xonly_pair2.clone().pubkey,xonly_pair3.clone().pubkey].to_vec(), encryption_key).unwrap();
         assert!(keys(url, xonly_pair1.clone(), &post_id,decrypkeys).is_ok());
         // Get posts & keys as user2
         let posts = get_all_posts(url, social_child2.xprv, None).unwrap();
@@ -393,8 +398,8 @@ mod tests {
         // Get posts & keys as user3
         let posts = get_all_posts(url, social_child3.xprv, None).unwrap();
         assert_eq!(posts.len(),1);
-        // Get posts as self
-        let posts = get_all_posts(url, social_child1.xprv, None).unwrap();
+        // // Get posts as self
+        let posts = get_all_posts(url, my_identity.social_root, None).unwrap();
         assert_eq!(posts.len(),1);
         // Delete post
         assert!(remove(url,xonly_pair1.clone(), &post_id).is_ok());
