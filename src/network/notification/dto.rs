@@ -40,7 +40,8 @@ mod tests {
     use crate::network::identity::dto::{admin_invite,register,get_all,remove};
     use tungstenite::{Message};
 
-    #[test] #[ignore]
+    #[test] 
+    #[ignore]
     fn test_notifications_flow(){
         // FIRST INVITE THE GUY
         let host = "http://localhost:3021";

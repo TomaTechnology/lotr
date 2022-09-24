@@ -1,6 +1,7 @@
 use crate::lib::e::{S5Error,ErrorKind};
 use crate::key::ec::{XOnlyPair};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 pub enum HttpMethod{
     Get,
@@ -44,9 +45,62 @@ pub enum APIEndPoint{
     AdminInvite,
     Identity,
     AllIdentities,
+    Announce(AnnouncementType),
+    Announcements(OwnedBy),
+    Revoke(AnnouncementType),
     Post(Option<String>),
+    Posts(OwnedBy),
     PostKeys,
     Notifications
+}
+
+pub enum OwnedBy{
+    Me,
+    Others
+}
+impl OwnedBy {
+    pub fn to_string(&self)->String{
+        match self{
+            OwnedBy::Me=>"self".to_string(),
+            OwnedBy::Others=>"others".to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum AnnouncementType{
+    Trust,
+    Scam,
+    Escrow
+}
+impl AnnouncementType {
+    pub fn to_string(&self)->String{
+        match self{
+            AnnouncementType::Trust=>"Trust".to_string(),
+            AnnouncementType::Scam=>"Scam".to_string(),
+            AnnouncementType::Escrow=>"Escrow".to_string(),
+        }
+    }
+}
+impl FromStr for AnnouncementType{
+    type Err = S5Error;
+
+    fn from_str(s: &str)->Result<Self,Self::Err>{
+        Ok(
+            match s{
+                "Trust"=>AnnouncementType::Trust,
+                "trust"=>AnnouncementType::Trust,
+                "TRUST"=>AnnouncementType::Trust,
+                "Escrow"=>AnnouncementType::Escrow,
+                "escrow"=>AnnouncementType::Escrow,
+                "ESCROW"=>AnnouncementType::Escrow,
+                "Scam"=>AnnouncementType::Scam,
+                "scam"=>AnnouncementType::Scam,
+                "SCAM"=>AnnouncementType::Scam,
+                _=>AnnouncementType::Scam
+            }
+        )
+    }
 }
 
 impl APIEndPoint{
@@ -55,12 +109,21 @@ impl APIEndPoint{
             APIEndPoint::AdminInvite=>"/api/v2/identity/admin/invitation".to_string(),
             APIEndPoint::Identity=>"/api/v2/identity".to_string(),
             APIEndPoint::AllIdentities=>"/api/v2/identity/all".to_string(),
+            APIEndPoint::Announce(kind)=>"/api/v2/announcement/".to_string() + &kind.to_string().to_lowercase(),
+            APIEndPoint::Revoke(kind)=>"/api/v2/announcement/".to_string() + &kind.to_string().to_lowercase() + "/revoke",
+            APIEndPoint::Announcements(owner)=>{
+                match owner {
+                    OwnedBy::Me=>"/api/v2/announcement/".to_string() + &owner.to_string(),
+                    OwnedBy::Others=>"/api/v2/announcement/".to_string() + "all",
+                }
+            },
             APIEndPoint::Post(id)=>{
                 match id {
                     Some(id)=>"/api/v2/post".to_string() + "/" + id,
                     None=>"/api/v2/post".to_string()
                 }
             },
+            APIEndPoint::Posts(owner)=>"/api/v2/post/".to_string() + &owner.to_string(),
             APIEndPoint::PostKeys=>"/api/v2/post/keys".to_string(),
             APIEndPoint::Notifications=>"/api/v3/notifications".to_string(),
         }

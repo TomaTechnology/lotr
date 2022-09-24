@@ -59,7 +59,6 @@ mod tests {
         )
     );
 
-
     let example_model = PlainPostModel{
         id: "s5pvdGwg22tiUp8rsupd4fTrtYMEWS".to_string(),
         genesis: 192783921384334,

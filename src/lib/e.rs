@@ -52,7 +52,7 @@ impl S5Error {
         S5Error::new(kind, &response.status_text())
       }
       _ => { 
-        S5Error::new(ErrorKind::Network, "Transport Error. Check your internet connection.")
+        S5Error::new(ErrorKind::Network, "Transport Error. Check your internet connection AND/OR your request object.")
       }
     }
   }

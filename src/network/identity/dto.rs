@@ -164,6 +164,7 @@ mod tests {
     use bitcoin::network::constants::Network;
 
     #[test]
+    #[ignore]
     fn test_identities_flow(){
         let url = "http://localhost:3021";
         // ADMIN INVITE

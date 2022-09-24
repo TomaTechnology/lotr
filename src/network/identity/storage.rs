@@ -1,8 +1,8 @@
 use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
-use crate::network::identity::model::{MemberIdentity};
+use crate::network::identity::model::{MemberIdentity,UserIdentity};
 use bitcoin::secp256k1::{XOnlyPublicKey};
-
+use std::str::from_utf8;
 
 pub fn create_members(member_models: Vec<MemberIdentity>)->Result<bool, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
@@ -58,25 +58,24 @@ pub fn delete_members()->bool{
     true
 }
 
-pub fn create_my_identity(me: MemberIdentity)->Result<bool, S5Error>{
+pub fn create_my_identity(user: UserIdentity, password: String)->Result<bool, S5Error>{
+    let entry = user.clone().encrypt(password);
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
-    let main_tree = sleddb::get_tree(db, "me").unwrap();
-    let bytes = bincode::serialize(&me).unwrap();
-    main_tree.insert("0", bytes).unwrap();
+    let main_tree = sleddb::get_tree(db, &user.username).unwrap();
+    main_tree.insert("0", entry.as_bytes()).unwrap();
     Ok(true)
 }
-pub fn read_my_identity()->Result<MemberIdentity,S5Error>{
+pub fn read_my_identity(username: String, password: String)->Result<UserIdentity,S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
-    match sleddb::get_tree(db.clone(), "me"){
+    match sleddb::get_tree(db.clone(), &username){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
             match tree.get("0").unwrap() {
                 Some(bytes) => {
-                    let me: MemberIdentity = bincode::deserialize(&bytes).unwrap();
-                    tree.flush().unwrap();
-                    Ok(me)
+                    let user = UserIdentity::decrypt(std::str::from_utf8(&bytes).unwrap().to_string(),password).unwrap();
+                    Ok(user)
                 },
-                None => Err(S5Error::new(ErrorKind::Internal, "No MemberIdentity found in me tree"))
+                None => Err(S5Error::new(ErrorKind::Internal, "No UserIdentity found in me tree"))
             }
             } else {
                 db.drop_tree(&tree.name()).unwrap();
@@ -88,11 +87,11 @@ pub fn read_my_identity()->Result<MemberIdentity,S5Error>{
             Err(S5Error::new(ErrorKind::Internal, "Could not get me tree"))
         }
     }
-
 }
-pub fn delete_my_identity()->bool{
+
+pub fn delete_my_identity(username: String)->bool{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
-    let tree = sleddb::get_tree(db.clone(), "me").unwrap();
+    let tree = sleddb::get_tree(db.clone(), &username).unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
     db.drop_tree(&tree.name()).unwrap();
@@ -104,13 +103,22 @@ pub fn delete_my_identity()->bool{
 mod tests {
   use super::*;
   use crate::key::ec;
+  use crate::key::seed;
+  use crate::key::child;
+  use bdk::bitcoin::network::constants::Network;
 
   #[test]
   fn test_identity_store(){
-    let me = MemberIdentity{
+    let seed1 = seed::generate(24, "", Network::Bitcoin).unwrap();
+    let social_child1 = child::to_path_str(seed1.xprv, "m/128h/0h").unwrap();
+    
+    let me = UserIdentity{
         username: "ishi".to_string(),
-        pubkey: ec::pubkey_from_str("86a4b6e8b4c544111a6736d4f4195027d23495d947f87aa448c088da477c1b5f").unwrap()
+        social_root: social_child1.xprv,
+        last_path: "m/1/23".to_string(),
     };
+    let password = "secret".to_string();
+
     
     let mem1 = MemberIdentity{
         username: "sushi".to_string(),
@@ -120,13 +128,13 @@ mod tests {
         username: "bubble".to_string(),
         pubkey: ec::pubkey_from_str("1585c9ac1392819d93003fa3634274463c88982f6053bc53dada159093012a3f").unwrap()
     };
-    let status = create_my_identity(me.clone()).unwrap();
+    let status = create_my_identity(me.clone(), password.clone()).unwrap();
     assert!(status);
 
-    let my_identity = read_my_identity().unwrap();
+    let my_identity = read_my_identity(me.clone().username, password).unwrap();
     assert_eq!(my_identity.username,me.username);
 
-    let status = create_members([me,mem1,mem2.clone()].to_vec()).unwrap();
+    let status = create_members([me.to_member_id(),mem1,mem2.clone()].to_vec()).unwrap();
     assert!(status);
     let members = read_all_members().unwrap();
     assert_eq!(members.len(),3);

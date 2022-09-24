@@ -2,7 +2,7 @@ use crate::lib::e::{ErrorKind, S5Error};
 use serde::{Deserialize, Serialize};
 
 use ureq;
-use crate::network::handler::{HttpHeader,HttpMethod,APIEndPoint,ServerStatusResponse, sign_request};
+use crate::network::handler::{HttpHeader,HttpMethod,APIEndPoint,ServerStatusResponse, OwnedBy, sign_request};
 use crate::network::post::model::{LocalPostModel, Post, DecryptionKey};
 use bdk::bitcoin::util::bip32::ExtendedPrivKey;
 use crate::key::encryption::{nonce,key_hash256,cc20p1305_decrypt};
@@ -217,10 +217,9 @@ impl ServerPostModelResponse{
 
 fn my_posts(host: &str,key_pair: XOnlyPair, filter: Option<u64>)->Result<Vec<ServerPostModel>, S5Error>{
     let filter = if filter.is_some(){"?genesis_filter=".to_string() + &filter.unwrap().to_string()}else{"".to_string()};
-    let full_url = host.to_string() + &APIEndPoint::Post(Some("self".to_string())).to_string() + &filter;
+    let full_url = host.to_string() + &APIEndPoint::Posts(OwnedBy::Me).to_string() + &filter;
     let nonce = nonce();
     let signature = sign_request(key_pair.clone(), HttpMethod::Get, APIEndPoint::Post(Some("self".to_string())), &nonce).unwrap();
-
     match ureq::get(&full_url)
         .set(&HttpHeader::Signature.to_string(), &signature)
         .set(&HttpHeader::Pubkey.to_string(), &key_pair.pubkey.to_string())
@@ -243,7 +242,7 @@ fn my_posts(host: &str,key_pair: XOnlyPair, filter: Option<u64>)->Result<Vec<Ser
 
 fn others_posts(host: &str,key_pair: XOnlyPair, filter: Option<u64>)->Result<Vec<ServerPostModel>, S5Error>{
     let filter = if filter.is_some(){"?genesis_filter=".to_string() + &filter.unwrap().to_string()}else{"".to_string()};
-    let full_url = host.to_string() + &APIEndPoint::Post(Some("others".to_string())).to_string() + &filter;
+    let full_url = host.to_string() + &APIEndPoint::Posts(OwnedBy::Others).to_string() + &filter;
 
     let nonce = nonce();
     let signature = sign_request(key_pair.clone(), HttpMethod::Get, APIEndPoint::Post(Some("others".to_string())), &nonce).unwrap();
@@ -322,8 +321,6 @@ pub fn single_post(host: &str,key_pair: XOnlyPair,post_id: &str)->Result<ServerP
 }
 
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,6 +332,7 @@ mod tests {
     use bdk::bitcoin::network::constants::Network;
     
     #[test]
+    #[ignore]
     fn test_post_flow(){
         let url = "http://localhost:3021";
         // ADMIN INVITE
