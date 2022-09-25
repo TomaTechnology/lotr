@@ -2,19 +2,19 @@ use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
 use crate::network::model::{LocalPostModel};
 
-pub fn create_posts(post_models: Vec<LocalPostModel>)->Result<bool, S5Error>{
+pub fn create_posts(post_models: Vec<LocalPostModel>, username: String)->Result<bool, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
     let main_tree = sleddb::get_tree(db, "posts").unwrap();
     let bytes = bincode::serialize(&post_models).unwrap();
-    main_tree.insert("0", bytes).unwrap();
+    main_tree.insert(&username.to_string(), bytes).unwrap();
     Ok(true)
 }
-pub fn read_posts()->Result<Vec<LocalPostModel>,S5Error>{
+pub fn read_posts(username: String)->Result<Vec<LocalPostModel>,S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
     match sleddb::get_tree(db.clone(), "posts"){
         Ok(tree)=>{
-            if tree.contains_key(b"0").unwrap() {
-            match tree.get("0").unwrap() {
+            if tree.contains_key(&username.as_bytes()).unwrap() {
+            match tree.get(&username).unwrap() {
                 Some(bytes) => {
                     let posts: AllPosts = bincode::deserialize(&bytes).unwrap();
                     tree.flush().unwrap();
@@ -34,47 +34,21 @@ pub fn read_posts()->Result<Vec<LocalPostModel>,S5Error>{
     }
 
 }
-pub fn delete_posts()->bool{
+pub fn delete_posts(username: String)->(){
     let db = sleddb::get_root(sleddb::LotrDatabase::Network).unwrap();
     let tree = sleddb::get_tree(db.clone(), "posts").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
-    db.drop_tree(&tree.name()).unwrap();
-    true
+    ()
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::cypherpost::model::{PostKind,PlainPost,PostItem};
+  use crate::network::model::{LocalPostModel,PlainPost,PostItem};
 
   #[test]
   fn test_posts_store() {
-    
-    let example_post  = PlainPost::new(
-        PostKind::Message,
-        None,
-        PostItem::new(
-            Some("msg".to_string()), "Secret just for me!".to_string()
-        )
-    );
-
-    let example_model = PlainPostModel{
-        id: "s5pvdGwg22tiUp8rsupd4fTrtYMEWS".to_string(),
-        genesis: 192783921384334,
-        expiry: 0,
-        owner: "builder".to_string(),
-        plain_post: example_post,
-    };
-
-    let status = create_posts([example_model.clone()].to_vec()).unwrap();
-    assert!(status);
-
-    let models = read_posts().unwrap();
-    assert_eq!(models.posts.len(), 1);
-
-    let status = delete_posts();
-    assert!(status);
 
   }
   

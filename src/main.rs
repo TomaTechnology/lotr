@@ -316,6 +316,7 @@ fn main() {
 
                     if !settings.check_password(password.clone()) {
                         fmt_print("BAD PASSWORD");
+                        return;
                     }
 
                     print!("Choose a unique username (12 alphanumeric characters only): ");
@@ -395,12 +396,20 @@ fn main() {
 
                             if !settings.check_password(password.clone()) {
                                 fmt_print("BAD PASSWORD");
+                                return;
+
                             }
 
                             print!("Enter username/alias to remove: ");
                             let username: String = read!("{}\n");
                             if aliases.contains(&username.clone()){
-                                let identity = identity::storage::read_my_identity(username.clone(), password).unwrap();
+                                let identity = match identity::storage::read_my_identity(username.clone(), password){
+                                    Ok(id)=>id,
+                                    Err(e)=>{
+                                        fmt_print_struct("ERRORED!",e);
+                                        return;
+                                    }
+                                };
                                 match identity::dto::remove(&host, identity.to_xonly_pair()){
                                     Ok(_)=>{
                                         identity::storage::delete_my_identity(username);
@@ -441,6 +450,8 @@ fn main() {
 
                     if !settings.check_password(password.clone()) {
                         fmt_print("BAD PASSWORD");
+                        return;
+
                     }
 
                     print!("Which alias to use (username): ");
@@ -499,6 +510,8 @@ fn main() {
 
                     if !settings.check_password(password.clone()) {
                         fmt_print("BAD PASSWORD");
+                        return;
+
                     }
 
                     print!("Which alias to use (username): ");
@@ -517,7 +530,7 @@ fn main() {
                     print!("Message: ");
                     let message: String = read!("{}\n");
 
-                    let mut to: Vec<XOnlyPublicKey> = match network::identity::storage::read_all_members()
+                    let to: Vec<XOnlyPublicKey> = match network::identity::storage::read_all_members()
                     {
                         Ok(mut result)=>{
                             result.retain(|x| {
@@ -533,12 +546,16 @@ fn main() {
                             return;
                         }
                     };
+                    println!("{:#?}",to);
+
                     let recipient = if to.len() == 1  {
-                        Recipient::Direct(to.pop().unwrap())
+                        Recipient::Direct(to[0])
                     }
                     else {
                         Recipient::Group(key::encryption::nonce())
                     };
+
+                    println!("{:#?}",recipient);
                     let mut identity = identity::storage::read_my_identity(username, password.clone()).unwrap();
                     let keypair = XOnlyPair::from_xprv(identity.social_root);
 
@@ -564,14 +581,16 @@ fn main() {
                             }
                         }
                     };
+
                     let decryption_keys = DecryptionKey::make_for_many(keypair.clone(),to,encryption_key).unwrap();
+                    println!("{:#?}",decryption_keys);
                     match network::post::dto::keys(&host, keypair.clone(), &post_id, decryption_keys){
                         Ok(_)=>{
                             fmt_print("SUCCESSFULLY POSTED!");
                             let ws_url = settings.network_url_parse(ServerKind::Websocket);
                             let mut socket = network::notification::dto::sync(&ws_url, keypair).unwrap();
-                            let ten_millis = time::Duration::from_millis(1000);                            
-                            thread::sleep(ten_millis);
+                            let one_sec = time::Duration::from_millis(1000);                            
+                            thread::sleep(one_sec);
                             socket.write_message(Message::Text(post_id.into())).unwrap();
 
                             ()
@@ -612,6 +631,7 @@ fn main() {
 
                     if !settings.check_password(password.clone()) {
                         fmt_print("BAD PASSWORD");
+                        return;
                     }
 
                     print!("Which alias to use (username): ");
@@ -628,7 +648,16 @@ fn main() {
                     let mut socket = network::notification::dto::sync(&ws_host, keypair.clone()).unwrap();
                     println!("===============================================");
                     let all_posts = network::post::dto::get_all_posts(&host, identity.social_root,None).unwrap();
-                    let members = network::identity::storage::read_all_members().unwrap();
+                    let members = match identity::dto::get_all(&host, keypair.clone()){
+                        Ok(members)=>{
+                            network::identity::storage::create_members(members.clone()).unwrap();
+                            members
+                        }
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                            return;
+                        }
+                    };
                     for post in all_posts.into_iter(){
                         println!("\x1b[94;1m{}\x1b[0m :: {}",network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string())
                     }
@@ -637,14 +666,8 @@ fn main() {
                             Ok(msg)=>{
                                 if msg.to_string().starts_with("s5p"){
                                     let cypherpost_single = network::post::dto::single_post(&host, keypair.clone(), &msg.to_string()).unwrap();
-                                    if cypherpost_single.clone().decryption_key.is_some(){
-                                        let post = cypherpost_single.decypher(identity.social_root).unwrap();
-                                        println!("\x1b[94;1m{}\x1b[0m :: {}", network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string());
-                                    }
-                                    else{
-                                        let post = cypherpost_single.decypher(identity.social_root).unwrap();
-                                        println!("\x1b[94;1m{}\x1b[0m :: {}", network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string());
-                                    }
+                                    let post = cypherpost_single.decypher(identity.social_root).unwrap();
+                                    println!("\x1b[94;1m{}\x1b[0m :: {}", network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string());
                                 }
                                 else{
                                     println!(

@@ -30,7 +30,10 @@ pub fn cc20p1305_encrypt(plaintext:&str, key: &str)->Result<String,S5Error>{
     let aead = XChaCha20Poly1305::new(encryption_key);
     let nonce = nonce();
     let nonce = XNonce::from_slice(nonce.as_bytes()); 
-    let ciphertext = aead.encrypt(nonce, plaintext.as_bytes()).expect("encryption failure!");
+    let ciphertext = match aead.encrypt(nonce, plaintext.as_bytes()){
+      Ok(cipher)=>cipher,
+      Err(_)=>return Err(S5Error::new(ErrorKind::Key, "Encryption Failed!"))
+    };
     Ok(format!("{}:{}",base64::encode(nonce),base64::encode(&ciphertext)))
 }
 pub fn cc20p1305_decrypt(ciphertext:&str, key: &str)->Result<String,S5Error>{
@@ -39,10 +42,19 @@ pub fn cc20p1305_decrypt(ciphertext:&str, key: &str)->Result<String,S5Error>{
     let encryption_key = Key::from_slice(shortened);
     let aead = XChaCha20Poly1305::new(encryption_key);
     let iter:Vec<&str> = ciphertext.split(':').collect();
-    let nonce_slice = &base64::decode(&iter[0].as_bytes()).unwrap();
-    let nonce = XNonce::from_slice(nonce_slice); // 24-bytes; unique
-    let ciphertext_bytes: &[u8] = &base64::decode(&iter[1].as_bytes()).unwrap();
-    let plaintext = aead.decrypt(nonce, ciphertext_bytes).expect("decryption failure!");
+    let nonce_slice = match base64::decode(&iter[0].as_bytes()){
+      Ok(nonce)=>nonce,
+      Err(_)=>return Err(S5Error::new(ErrorKind::Key, "Could not decode nonce!"))
+    };
+    let nonce = XNonce::from_slice(&*nonce_slice); // 24-bytes; unique
+    let ciphertext_bytes: Vec<u8> = match base64::decode(&iter[1].as_bytes()){
+      Ok(cipher)=>cipher,
+      Err(_)=>return Err(S5Error::new(ErrorKind::Key, "Could not decode ciphertext!"))
+    };
+    let plaintext = match aead.decrypt(nonce, &*ciphertext_bytes){
+      Ok(plain)=>plain,
+      Err(_)=>return Err(S5Error::new(ErrorKind::Key, "Decryption Failed!"))
+    };
     match str::from_utf8(&plaintext){
         Ok(message)=>Ok(message.to_string()),
         Err(_)=> Err(S5Error::new(ErrorKind::Input, "Bad Text"))

@@ -72,7 +72,10 @@ pub fn read_my_identity(username: String, password: String)->Result<UserIdentity
             if tree.contains_key(b"0").unwrap() {
             match tree.get("0").unwrap() {
                 Some(bytes) => {
-                    let user = UserIdentity::decrypt(std::str::from_utf8(&bytes).unwrap().to_string(),password).unwrap();
+                    let user = match UserIdentity::decrypt(std::str::from_utf8(&bytes).unwrap().to_string(),password){
+                        Ok(user)=>user,
+                        Err(e)=>return Err(e)
+                    };
                     Ok(user)
                 },
                 None => Err(S5Error::new(ErrorKind::Internal, "No UserIdentity found in me tree"))

@@ -50,7 +50,12 @@ impl UserIdentity {
         cc20p1305_encrypt(&self.stringify().unwrap(), &password).unwrap()
     }
     pub fn decrypt(cipher: String, password: String)->Result<UserIdentity, S5Error>{
-        Ok(UserIdentity::structify(&cc20p1305_decrypt(&cipher, &password).unwrap()).unwrap())
+        let id = match cc20p1305_decrypt(&cipher, &password){
+            Ok(value)=>value,
+            Err(e)=>return Err(e)
+        };
+
+        Ok(UserIdentity::structify(&id).unwrap())
     }
     fn increment_path(&mut self)->(){
         let last_ds = &self.clone().last_path;
