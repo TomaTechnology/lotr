@@ -4,7 +4,7 @@ use crate::lib::e::{ErrorKind, S5Error};
 use crate::settings::model::{MySettings};
 
 pub fn create(settings: MySettings)->Result<(), S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Settings).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Settings,None).unwrap();
     let main_tree = sleddb::get_tree(db, "settings").unwrap();
     // TODO!!! check if tree contains data, do not insert
     let bytes = bincode::serialize(&settings).unwrap();
@@ -12,7 +12,7 @@ pub fn create(settings: MySettings)->Result<(), S5Error>{
     Ok(())
 }
 pub fn read()->Result<MySettings, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Settings).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Settings,None).unwrap();
     match sleddb::get_tree(db.clone(), "settings"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -35,7 +35,7 @@ pub fn read()->Result<MySettings, S5Error>{
 }
 
 pub fn delete()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Settings).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Settings,None).unwrap();
     let tree = sleddb::get_tree(db.clone(), "settings").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
