@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn test_badges_flow(){
+    fn test_badges_dto(){
         let url = "http://localhost:3021";
         // ADMIN INVITE
         let admin_invite_code = "098f6bcd4621d373cade4e832627b4f6";
