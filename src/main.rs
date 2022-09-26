@@ -258,7 +258,7 @@ fn main() {
                 let network_host: String = read!("{}\n");
                 if network_host == "" || network_host == " "{}
                 else{
-                    my_settings.clone().network_host = network_host;
+                    my_settings.network_host = network_host;
                 }
                 print!("Enter your bitcoin node host ({}): ",my_settings.bitcoin_host);
                 let bitcoin_host: String = read!("{}\n");
@@ -357,7 +357,6 @@ fn main() {
                 }
                 Some(("aliases", sub_matches)) => {
                     match sub_matches.subcommand(){
-
                         Some(("list", _))=>{
                             let settings = match settings::storage::read(){
                                 Ok(value)=>value,
@@ -481,11 +480,17 @@ fn main() {
 
                     }
 
-                    print!("Which alias to use (username): ");
-                    let username: String = read!("{}\n");
-
                     let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
-                    if !existing_users.contains(&username.clone()){
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
@@ -541,16 +546,27 @@ fn main() {
 
                     }
 
-                    print!("Which alias to use (username): ");
-                    let username: String = read!("{}\n");
-
                     let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+                    
                     if !existing_users.contains(&username.clone()){
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
 
-                    print!("To (multiple,recipients,serpated,by,a,comma): ");
+                    print!("To (separate multiple recievers by comma): ");
                     let to: String = read!("{}\n");
                     let to: Vec<String> = to.split(",").map(|s| s.to_string().replace(" ", "")).collect();
 
@@ -661,10 +677,21 @@ fn main() {
                         return;
                     }
 
-                    print!("Which alias to use (username): ");
-                    let username: String = read!("{}\n");
-
                     let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+                    
                     if !existing_users.contains(&username.clone()){
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
