@@ -17,14 +17,16 @@ mod lib;
 use crate::lib::e::{ErrorKind};
 use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_TESTNET_NODE};
 
+
+mod settings;
+use crate::settings::model::{MySettings,ServerKind};
 mod key;
 use crate::key::ec::{XOnlyPair};
 mod network;
 use network::identity;
 use network::post::{self, model::{Payload,Post,Recipient,DecryptionKey}, dto::{ServerPostRequest, ServerPostModel}};
+mod contract;
 
-mod settings;
-use crate::settings::model::{MySettings,ServerKind};
 use std::{thread, time};
 use tungstenite::{Message};
 
@@ -86,16 +88,6 @@ fn main() {
                     .display_order(2)
                 )
                 .subcommand(
-                    Command::new("announce")
-                    .about("Make a public announcement.")
-                    .display_order(3)
-                )
-                .subcommand(
-                    Command::new("badges")
-                    .about("Get announcements and create a graph of badges.")
-                    .display_order(4)
-                )
-                .subcommand(
                     Command::new("sync")
                     .about("Sync all posts.")
                     .display_order(5)
@@ -122,14 +114,16 @@ fn main() {
                 .display_order(3)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
-                    Command::new("create")
-                    .about("Create a new contract")
+                    Command::new("new")
+                    .about("Start a new contract")
                     .display_order(0) 
-                )
-                .subcommand(
-                    Command::new("update")
-                    .about("Manually update a contract")
-                    .display_order(0) 
+                    .arg(
+                        Arg::with_name("kind")
+                        .takes_value(true)
+                        .short('k')
+                        .long("kind")
+                        .help("Which kind of contract would you like to create? I(nheritance) or L(oan)")
+                    )
                 )
                 .subcommand(
                     Command::new("info")
@@ -483,12 +477,6 @@ fn main() {
                         }
                     }  
                 }
-                Some(("announce", _)) => {
-                    
-                }
-                Some(("badges", _)) => {
-                    
-                }
                 Some(("post", _)) => {
                     let settings = match settings::storage::read(){
                         Ok(value)=>value,
@@ -659,7 +647,22 @@ fn main() {
                         }
                     };
                     for post in all_posts.into_iter(){
-                        println!("\x1b[94;1m{}\x1b[0m :: {}",network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string())
+                        match post.clone().post.payload{
+                            Payload::Ping=>{
+                                println!("\x1b[94;1m{}\x1b[0m :: {}",network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string())
+                            }
+                            Payload::ChecksumPong(_)=>{
+                                println!("\x1b[94;1m{}\x1b[0m :: {}",network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string())
+                            }
+                            Payload::Message(_)=>{
+                                println!("\x1b[94;1m{}\x1b[0m :: {}",network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string())
+                            }
+                            Payload::PolicyXpub(xpub)=>{
+                                
+                                println!("\x1b[94;1m{}\x1b[0m :: {}",network::identity::storage::get_username_by_pubkey(members.clone(), post.owner).unwrap(), post.post.payload.to_string())
+                            }
+                            
+                        }
                     }
                     loop {
                         match socket.read_message(){
@@ -688,9 +691,8 @@ fn main() {
 
         Some(("contract", service_matches))=>{
             match service_matches.subcommand() {
-                Some(("create", _)) => {
-                }
-                Some(("update", _)) => {
+                Some(("new", sub_matches)) => {
+                    
                 }
                 Some(("info", _)) => {
                 }

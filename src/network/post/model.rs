@@ -9,6 +9,7 @@ use crate::lib::e::{S5Error,ErrorKind};
 use crate::network::identity::model::{MemberIdentity, UserIdentity};
 use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_MAIN_NETWORK, DEFAULT_MAINNET_NODE, DEFAULT_TESTNET_NODE};
 use bdk::bitcoin::network::constants::Network;
+use crate::contract::model::{XPubInfo};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalPostModel {
@@ -85,7 +86,7 @@ pub enum Payload {
     ChecksumPong(String), // All pings responded with pong and checksum proof.
     Message(String),
     // Comment(Comment), // comment on another post
-    // PolicyXpub(PolicyXpub),
+    PolicyXpub(XPubInfo),
     // Address(WalletAddress),
     // Psbt(WalletPsbt),
     // Jitsi(String),
@@ -96,7 +97,7 @@ impl Payload {
             Payload::Ping=>"Ping".to_string(),
             Payload::ChecksumPong(checksum)=>checksum.to_string(),
             Payload::Message(text)=>text.to_string(),
-            // Payload::Preferences(prefs)=>prefs.stringify().unwrap()
+            Payload::PolicyXpub(xpub)=>xpub.to_full_xkey()
         }
     }
 }

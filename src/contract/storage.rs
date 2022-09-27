@@ -2,51 +2,12 @@ use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
 use crate::contract::model::{NodeInfo, ContractInfo,PolicyInfo};
 
-pub fn create_node_info(prefs: NodeInfo)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contract).unwrap();
-    let main_tree = sleddb::get_tree(db, "node").unwrap();
-    // TODO!!! check if tree contains data, do not insert
-    let bytes = bincode::serialize(&prefs).unwrap();
-    main_tree.insert("0", bytes).unwrap();
-    Ok(true)
-}
-pub fn read_node_info()->Result<NodeInfo, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contract).unwrap();
-    match sleddb::get_tree(db.clone(), "node"){
-        Ok(tree)=>{
-            if tree.contains_key(b"0").unwrap() {
-            match tree.get("0").unwrap() {
-                Some(bytes) => {
-                    let key_store: NodeInfo = bincode::deserialize(&bytes).unwrap();
-                    Ok(key_store)
-                },
-                None => Err(S5Error::new(ErrorKind::Internal, "No NodeInfoStore found in node tree"))
-            }
-            } else {
-            db.drop_tree(&tree.name()).unwrap();
-                Err(S5Error::new(ErrorKind::Input, "No index found in node tree"))
-            }
-        }
-        Err(_)=>{
-            Err(S5Error::new(ErrorKind::Internal, "Could not get node tree"))
-        }
-    }
-}
-pub fn delete_node_info()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contract).unwrap();
-    let tree = sleddb::get_tree(db.clone(), "node").unwrap();
-    tree.clear().unwrap();
-    tree.flush().unwrap();
-    db.drop_tree(&tree.name()).unwrap();
-    true
-}
 
-
-pub fn create_contract_info(prefs: ContractInfo)->Result<bool, S5Error>{
+pub fn create_contract_info(info: ContractInfo)->Result<bool, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Contract).unwrap();
     let main_tree = sleddb::get_tree(db, "info").unwrap();
     // TODO!!! check if tree contains data, do not insert
-    let bytes = bincode::serialize(&prefs).unwrap();
+    let bytes = bincode::serialize(&info).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
@@ -72,69 +33,66 @@ pub fn read_contract_info()->Result<ContractInfo, S5Error>{
         }
     }
 }
-pub fn update_depositor_info(part_info: PolicyInfo)->Result<bool, S5Error>{
-    match read_contract_info(){
-        Ok(mut contract_info)=>{
-            contract_info.depositor = part_info;
-            create_contract_info(contract_info).unwrap();
-            Ok(true)
-        },
-        Err(e)=>{
-            Err(e)
-        }
-    }
-}
-pub fn update_beneficiary_info(part_info: PolicyInfo)->Result<bool, S5Error>{
-    match read_contract_info(){
-        Ok(mut contract_info)=>{
-            contract_info.beneficiary = part_info;
-            create_contract_info(contract_info).unwrap();
-            Ok(true)
-        },
-        Err(e)=>{
-            Err(e)
-        }
-    }
-}
-pub fn update_escrow_info(part_info: PolicyInfo)->Result<bool, S5Error>{
-    match read_contract_info(){
-        Ok(mut contract_info)=>{
-            contract_info.escrow = part_info;
-            create_contract_info(contract_info).unwrap();
-            Ok(true)
-        },
-        Err(e)=>{
-            Err(e)
-        }
-    }
-}
-
-pub fn update_timelock(timelock: u64)->Result<bool, S5Error>{
-    match read_contract_info(){
-        Ok(mut contract_info)=>{
-            contract_info.timelock = Some(timelock);
-            create_contract_info(contract_info).unwrap();
-            Ok(true)
-        },
-        Err(e)=>{
-            Err(e)
-        }
-    }
-}
-
-pub fn update_pub_policy(policy: String)->Result<bool, S5Error>{
-    match read_contract_info(){
-        Ok(mut contract_info)=>{
-            contract_info.public_policy = Some(policy);
-            create_contract_info(contract_info).unwrap();
-            Ok(true)
-        },
-        Err(e)=>{
-            Err(e)
-        }
-    }
-}
-
+// pub fn update_depositor_info(part_info: PolicyInfo)->Result<bool, S5Error>{
+//     match read_contract_info(){
+//         Ok(mut contract_info)=>{
+//             contract_info.depositor = part_info;
+//             create_contract_info(contract_info).unwrap();
+//             Ok(true)
+//         },
+//         Err(e)=>{
+//             Err(e)
+//         }
+//     }
+// }
+// pub fn update_beneficiary_info(part_info: PolicyInfo)->Result<bool, S5Error>{
+//     match read_contract_info(){
+//         Ok(mut contract_info)=>{
+//             contract_info.beneficiary = part_info;
+//             create_contract_info(contract_info).unwrap();
+//             Ok(true)
+//         },
+//         Err(e)=>{
+//             Err(e)
+//         }
+//     }
+// }
+// pub fn update_escrow_info(part_info: PolicyInfo)->Result<bool, S5Error>{
+//     match read_contract_info(){
+//         Ok(mut contract_info)=>{
+//             contract_info.escrow = part_info;
+//             create_contract_info(contract_info).unwrap();
+//             Ok(true)
+//         },
+//         Err(e)=>{
+//             Err(e)
+//         }
+//     }
+// }
+// pub fn update_timelock(timelock: u64)->Result<bool, S5Error>{
+//     match read_contract_info(){
+//         Ok(mut contract_info)=>{
+//             contract_info.timelock = Some(timelock);
+//             create_contract_info(contract_info).unwrap();
+//             Ok(true)
+//         },
+//         Err(e)=>{
+//             Err(e)
+//         }
+//     }
+// }
+// pub fn update_pub_policy(policy: String)->Result<bool, S5Error>{
+//     match read_contract_info(){
+//         Ok(mut contract_info)=>{
+//             contract_info.public_policy = Some(policy);
+//             create_contract_info(contract_info).unwrap();
+//             Ok(true)
+//         },
+//         Err(e)=>{
+//             Err(e)
+//         }
+//     }
+// }
 pub fn delete_contract_info()->bool{
     let db = sleddb::get_root(sleddb::LotrDatabase::Contract).unwrap();
     let tree = sleddb::get_tree(db.clone(), "info").unwrap();
@@ -148,19 +106,9 @@ pub fn delete_contract_info()->bool{
 mod tests {
   use super::*;
 
-  #[test]
-  fn test_node_info_store(){
-    let node_info = NodeInfo::new("https://electrum.localhost:3021",9090);
-    let status = create_node_info(node_info.clone()).unwrap();
-    assert!(status);
-    let read_node_info_result = read_node_info().unwrap();
-    assert_eq!(read_node_info_result.url,node_info.url);
-    let status = delete_node_info();
-    assert!(status);
-  }
 
   #[test]
-  fn test_contract_info(){
+  fn test_contract_storage(){
 
   }
   

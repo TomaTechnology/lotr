@@ -11,7 +11,7 @@ pub enum LotrDatabase{
     Identity,
     Members,
     Network,
-    Contract,
+    Contract(String),
     Settings,
     Void,
 }
@@ -24,21 +24,11 @@ impl LotrDatabase{
             LotrDatabase::Members=>"members".to_string(),
             LotrDatabase::Settings=>"settings".to_string(),
             LotrDatabase::Network=>"network".to_string(),
-            LotrDatabase::Contract=>"contract".to_string(),
+            LotrDatabase::Contract(id)=>"contract_".to_string() + &id,
             LotrDatabase::Void=>"void".to_string()
         }
     }
-    pub fn from_str(db: &str)->LotrDatabase{
-        match db {
-            "keys"=>LotrDatabase::MasterKey,
-            "identity"=>LotrDatabase::Identity,
-            "members"=>LotrDatabase::Members,
-            "settings"=>LotrDatabase::Settings,
-            "network"=>LotrDatabase::Network,
-            "contract"=>LotrDatabase::Contract,
-            &_=>LotrDatabase::Void
-        }
-    }
+
 }
 
 
