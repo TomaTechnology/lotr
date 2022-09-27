@@ -42,7 +42,7 @@ mod tests {
 
     #[test] 
     #[ignore]
-    fn test_notifications_flow(){
+    fn test_notifications_dto(){
         // FIRST INVITE THE GUY
         let host = "http://localhost:3021";
         // ADMIN INVITE

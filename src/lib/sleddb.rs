@@ -33,9 +33,13 @@ impl LotrDatabase{
 
 
 /// Retrieves the primary data store @ $HOME/.lotr/$db.
-pub fn get_root(db: LotrDatabase) -> Result<Db, String> {
-    let db_storage_path: String =
-        format!("{}/{}/{}", env::var("HOME").unwrap(), STORAGE_ROOT, &db.to_string());
+pub fn get_root(db: LotrDatabase, filter: Option<String>) -> Result<Db, String> {
+    let db_storage_path: String = if filter.is_none(){
+        format!("{}/{}/{}", env::var("HOME").unwrap(), STORAGE_ROOT, &db.to_string())
+    }
+    else{
+        format!("{}/{}/{}/{}", env::var("HOME").unwrap(), STORAGE_ROOT, &db.to_string(), &filter.unwrap())
+    };
     match sled::open(db_storage_path.clone()) {
         Ok(db) => Ok(db),
         Err(e) =>{
@@ -56,8 +60,8 @@ pub fn get_tree(root: Db, index: &str) -> Result<Tree, String> {
 }
 
 /// Retrives all tree indexes in a db
-pub fn get_indexes(lotr_db: LotrDatabase) -> Vec<String>{
-    let root = get_root(lotr_db).unwrap();
+pub fn get_indexes(lotr_db: LotrDatabase, filter: Option<String>) -> Vec<String>{
+    let root = get_root(lotr_db,filter).unwrap();
     let mut unames: Vec<String> = [].to_vec();
     for key in root.tree_names().iter() {
         

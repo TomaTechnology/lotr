@@ -248,7 +248,7 @@ fn main() {
                 // prompt update settings
                 fmt_print("UPDATING EXISTING SETTINGS>>>");
                 let mut my_settings = existing.unwrap();
-                print!("Enter your network host ({}): ",my_settings.network_host);
+                print!("Enter your network host ({}): ",my_settings.clone().network_host);
                 let network_host: String = read!("{}\n");
                 if network_host == "" || network_host == " "{}
                 else{
@@ -320,7 +320,7 @@ fn main() {
                     std::io::stdout().flush().unwrap();
                     let invite_code = read_password().unwrap();
 
-                    let existing_users = identity::storage::get_username_indexes();
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
                     if existing_users.contains(&username.clone()){
                         fmt_print("USER ALREADY EXISTS");
                         return
@@ -335,7 +335,7 @@ fn main() {
                     
                     match identity::dto::register(&host, keypair, &invite_code, &username){
                         Ok(_)=>{
-                            identity::storage::create_my_identity(identity.clone(),password).unwrap();
+                            identity::storage::create_my_identity(settings.clone().network_host, identity.clone(),password).unwrap();
                             println!("WRITE DOWN YOUR MASTER KEY DATA!\n\nMnemonic: {}\n\nFingerprint: {}", seed.mnemonic.to_string(),seed.fingerprint);
                             fmt_print("USER REGISTERED!");
                         }
@@ -352,7 +352,20 @@ fn main() {
                 Some(("aliases", sub_matches)) => {
                     match sub_matches.subcommand(){
                         Some(("list", _))=>{
-                            let aliases = identity::storage::get_username_indexes();
+                            let settings = match settings::storage::read(){
+                                Ok(value)=>value,
+                                Err(e)=>{
+                                    if e.kind == ErrorKind::NoResource.to_string(){
+                                        fmt_print("SETTINGS REQUIRED!");
+                                        return;
+                                    }
+                                    else{
+                                        fmt_print_struct("ERRORED!",e);
+                                        return;
+                                    }
+                                } 
+                            };
+                            let aliases = identity::storage::get_username_indexes(settings.clone().network_host);
                             if &aliases.len() > &0 {
                                 fmt_print_struct("Existing aliases:", aliases.clone());
                             }
@@ -361,7 +374,20 @@ fn main() {
                             }
                         }
                         Some(("remove", _))=>{
-                            let aliases = identity::storage::get_username_indexes();
+                            let settings = match settings::storage::read(){
+                                Ok(value)=>value,
+                                Err(e)=>{
+                                    if e.kind == ErrorKind::NoResource.to_string(){
+                                        fmt_print("SETTINGS REQUIRED!");
+                                        return;
+                                    }
+                                    else{
+                                        fmt_print_struct("ERRORED!",e);
+                                        return;
+                                    }
+                                } 
+                            };
+                            let aliases = identity::storage::get_username_indexes(settings.clone().network_host);
                             if &aliases.len() > &0 {
                                 fmt_print_struct("Existing aliases:", aliases.clone());
                             }
@@ -397,7 +423,7 @@ fn main() {
                             print!("Enter username/alias to remove: ");
                             let username: String = read!("{}\n");
                             if aliases.contains(&username.clone()){
-                                let identity = match identity::storage::read_my_identity(username.clone(), password){
+                                let identity = match identity::storage::read_my_identity(settings.clone().network_host,username.clone(), password){
                                     Ok(id)=>id,
                                     Err(e)=>{
                                         fmt_print_struct("ERRORED!",e);
@@ -406,7 +432,7 @@ fn main() {
                                 };
                                 match identity::dto::remove(&host, identity.to_xonly_pair()){
                                     Ok(_)=>{
-                                        identity::storage::delete_my_identity(username);
+                                        identity::storage::delete_my_identity(settings.clone().network_host,username);
                                         fmt_print("ALIAS REMOVED!");
                                     }
                                     Err(e)=>{
@@ -448,20 +474,26 @@ fn main() {
 
                     }
 
-                    print!("Which alias to use (username): ");
-                    let username: String = read!("{}\n");
-
-                    let existing_users = identity::storage::get_username_indexes();
-                    if !existing_users.contains(&username.clone()){
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
                     
-                    let identity = identity::storage::read_my_identity(username, password).unwrap();
+                    let identity = identity::storage::read_my_identity(settings.clone().network_host,username, password).unwrap();
                     let keypair = XOnlyPair::from_xprv(identity.social_root);
                     match identity::dto::get_all(&host, keypair){
                         Ok(members)=>{
-                            network::identity::storage::create_members(members.clone()).unwrap();
+                            network::identity::storage::create_members(settings.clone().network_host,members.clone()).unwrap();
                             println!("===============================================");
                             println!("MEMBERS:");
                             println!("===============================================");
@@ -502,23 +534,34 @@ fn main() {
 
                     }
 
-                    print!("Which alias to use (username): ");
-                    let username: String = read!("{}\n");
-
-                    let existing_users = identity::storage::get_username_indexes();
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+                    
                     if !existing_users.contains(&username.clone()){
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
 
-                    print!("To (multiple,recipients,serpated,by,a,comma): ");
+                    print!("To (separate multiple recievers by comma): ");
                     let to: String = read!("{}\n");
                     let to: Vec<String> = to.split(",").map(|s| s.to_string().replace(" ", "")).collect();
 
                     print!("Message: ");
                     let message: String = read!("{}\n");
 
-                    let to: Vec<XOnlyPublicKey> = match network::identity::storage::read_all_members()
+                    let to: Vec<XOnlyPublicKey> = match network::identity::storage::read_all_members(settings.clone().network_host)
                     {
                         Ok(mut result)=>{
                             result.retain(|x| {
@@ -544,7 +587,7 @@ fn main() {
                     };
 
                     println!("{:#?}",recipient);
-                    let mut identity = identity::storage::read_my_identity(username, password.clone()).unwrap();
+                    let mut identity = identity::storage::read_my_identity(settings.clone().network_host,username, password.clone()).unwrap();
                     let keypair = XOnlyPair::from_xprv(identity.social_root);
 
                     let message_to_share = Payload::Message(message);
@@ -555,7 +598,7 @@ fn main() {
 
                     let post_id = match network::post::dto::create(&host, keypair.clone(),cpost_req){
                         Ok(id)=>{
-                            network::identity::storage::create_my_identity(identity.clone(), password).unwrap();
+                            network::identity::storage::create_my_identity(settings.clone().network_host,identity.clone(), password).unwrap();
                             id
                         }
                         Err(e)=>{
@@ -622,15 +665,26 @@ fn main() {
                         return;
                     }
 
-                    print!("Which alias to use (username): ");
-                    let username: String = read!("{}\n");
-
-                    let existing_users = identity::storage::get_username_indexes();
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+                    
                     if !existing_users.contains(&username.clone()){
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
-                    let identity = identity::storage::read_my_identity(username, password.clone()).unwrap();
+                    let identity = identity::storage::read_my_identity(settings.clone().network_host,username, password.clone()).unwrap();
                     let keypair = XOnlyPair::from_xprv(identity.social_root);
                     println!("Establishing connection with cypherpost server...");
                     let mut socket = network::notification::dto::sync(&ws_host, keypair.clone()).unwrap();
@@ -638,7 +692,7 @@ fn main() {
                     let all_posts = network::post::dto::get_all_posts(&host, identity.social_root,None).unwrap();
                     let members = match identity::dto::get_all(&host, keypair.clone()){
                         Ok(members)=>{
-                            network::identity::storage::create_members(members.clone()).unwrap();
+                            network::identity::storage::create_members(settings.clone().network_host,members.clone()).unwrap();
                             members
                         }
                         Err(e)=>{

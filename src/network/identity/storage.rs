@@ -4,15 +4,15 @@ use crate::network::identity::model::{MemberIdentity,UserIdentity};
 use bitcoin::secp256k1::{XOnlyPublicKey};
 use std::str;
 
-pub fn create_members(member_models: Vec<MemberIdentity>)->Result<bool, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Members).unwrap();
+pub fn create_members(host: String, member_models: Vec<MemberIdentity>)->Result<bool, S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Members, Some(host)).unwrap();
     let main_tree = sleddb::get_tree(db, "members").unwrap();
     let bytes = bincode::serialize(&member_models).unwrap();
     main_tree.insert("0", bytes).unwrap();
     Ok(true)
 }
-pub fn read_all_members()->Result<Vec<MemberIdentity>,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Members).unwrap();
+pub fn read_all_members(host: String)->Result<Vec<MemberIdentity>,S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Members, Some(host)).unwrap();
     match sleddb::get_tree(db.clone(), "members"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -49,8 +49,8 @@ pub fn get_username_by_pubkey(mut members: Vec<MemberIdentity>, pubkey: XOnlyPub
     }
 
 }
-pub fn delete_members()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Members).unwrap();
+pub fn delete_members(host: String)->bool{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Members, Some(host)).unwrap();
     let tree = sleddb::get_tree(db.clone(), "members").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -58,15 +58,15 @@ pub fn delete_members()->bool{
     true
 }
 
-pub fn create_my_identity(user: UserIdentity, password: String)->Result<bool, S5Error>{
+pub fn create_my_identity(host: String, user: UserIdentity, password: String)->Result<bool, S5Error>{
     let entry = user.clone().encrypt(password);
-    let db = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
+    let db = sleddb::get_root(sleddb::LotrDatabase::Identity,Some(host)).unwrap();
     let main_tree = sleddb::get_tree(db, &user.username).unwrap();
     main_tree.insert("0", entry.as_bytes()).unwrap();
     Ok(true)
 }
-pub fn read_my_identity(username: String, password: String)->Result<UserIdentity,S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
+pub fn read_my_identity(host: String, username: String, password: String)->Result<UserIdentity,S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Identity,Some(host)).unwrap();
     match sleddb::get_tree(db.clone(), &username){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -92,8 +92,8 @@ pub fn read_my_identity(username: String, password: String)->Result<UserIdentity
     }
 }
 
-pub fn delete_my_identity(username: String)->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
+pub fn delete_my_identity(host: String, username: String)->bool{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Identity,Some(host)).unwrap();
     let tree = sleddb::get_tree(db.clone(), &username).unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
@@ -101,8 +101,8 @@ pub fn delete_my_identity(username: String)->bool{
     true
 }
 
-pub fn get_username_indexes() -> Vec<String>{
-    let root = sleddb::get_root(sleddb::LotrDatabase::Identity).unwrap();
+pub fn get_username_indexes(host: String) -> Vec<String>{
+    let root = sleddb::get_root(sleddb::LotrDatabase::Identity,Some(host)).unwrap();
     let mut usernames: Vec<String> = [].to_vec();
     for key in root.tree_names().iter() {
         let username = str::from_utf8(key).unwrap();
@@ -134,7 +134,8 @@ mod tests {
     };
     let password = "secret".to_string();
 
-    
+    let host = "localhost".to_string();
+
     let mem1 = MemberIdentity{
         username: "sushi".to_string(),
         pubkey: ec::pubkey_from_str("2ad4b769ddfdd8e47cb4840d85b679ad17d2f076b2ca65b6f18758db41257ccc").unwrap()
@@ -143,21 +144,21 @@ mod tests {
         username: "bubble".to_string(),
         pubkey: ec::pubkey_from_str("1585c9ac1392819d93003fa3634274463c88982f6053bc53dada159093012a3f").unwrap()
     };
-    let status = create_my_identity(me.clone(), password.clone()).unwrap();
+    let status = create_my_identity(host.clone(),me.clone(), password.clone()).unwrap();
     assert!(status);
 
-    let my_identity = read_my_identity(me.clone().username, password).unwrap();
+    let my_identity = read_my_identity(host.clone(),me.clone().username, password).unwrap();
     assert_eq!(my_identity.username,me.username);
 
-    let status = create_members([me.to_member_id(),mem1,mem2.clone()].to_vec()).unwrap();
+    let status = create_members(host.clone(),[me.to_member_id(),mem1,mem2.clone()].to_vec()).unwrap();
     assert!(status);
-    let members = read_all_members().unwrap();
+    let members = read_all_members(host.clone()).unwrap();
     assert_eq!(members.len(),3);
 
     let member = get_username_by_pubkey(members,ec::pubkey_from_str("1585c9ac1392819d93003fa3634274463c88982f6053bc53dada159093012a3f").unwrap()).unwrap();    
     assert_eq!(member, mem2.username);
 
-    let status = delete_members();
+    let status = delete_members(host.clone());
     assert!(status);
   }
 }

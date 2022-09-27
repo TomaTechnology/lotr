@@ -337,7 +337,8 @@ mod tests {
     use crate::network::identity::model::{UserIdentity};
 
     #[test]
-    fn test_post_flow(){
+    #[ignore]
+    fn test_post_dto(){
         let url = "http://localhost:3021";
         // ADMIN INVITE
         let admin_invite_code = "098f6bcd4621d373cade4e832627b4f6";
