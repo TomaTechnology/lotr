@@ -11,7 +11,7 @@ pub enum LotrDatabase{
     Identity,
     Members,
     Network,
-    Contract(String),
+    Contract,
     Settings,
     Void,
 }
@@ -24,7 +24,7 @@ impl LotrDatabase{
             LotrDatabase::Members=>"members".to_string(),
             LotrDatabase::Settings=>"settings".to_string(),
             LotrDatabase::Network=>"network".to_string(),
-            LotrDatabase::Contract(id)=>"contract_".to_string() + &id,
+            LotrDatabase::Contract=>"contract".to_string(),
             LotrDatabase::Void=>"void".to_string()
         }
     }
