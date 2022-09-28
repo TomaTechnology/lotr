@@ -42,6 +42,16 @@ pub enum InheritanceRole{
     Child
 }
 impl InheritanceRole {
+    pub fn to_string(&self)->String{
+        match self{
+            InheritanceRole::Parent=>{
+                "Parent".to_string()
+            },
+            InheritanceRole::Child=>{
+                "Child".to_string()
+            },
+        }
+    }
     pub fn from_str(s: &str) -> Result<InheritanceRole,String>{
         if s.to_lowercase().starts_with("p"){
             Ok(InheritanceRole::Parent)
@@ -94,7 +104,6 @@ impl InheritanceContract{
             timelock,
             public_policy: None,
             public_descriptor: None,
-
         }
     }
     pub fn add_parent_xpub(&mut self, xpub: XPubInfo)->(){

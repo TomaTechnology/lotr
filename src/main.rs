@@ -15,7 +15,7 @@ use bitcoin::secp256k1::{XOnlyPublicKey};
 
 mod lib;
 use crate::lib::e::{ErrorKind};
-use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_TESTNET_NODE};
+use crate::lib::config::{WalletConfig,DEFAULT_TEST_NETWORK, DEFAULT_TESTNET_NODE};
 use crate::lib::sleddb;
 
 
@@ -230,14 +230,6 @@ fn main() {
                     Command::new("receive")
                     .about("Get an address to receive funds")
                     .display_order(2)
-                    .arg(
-                        Arg::with_name("label")
-                        .takes_value(true)
-                        .short('l')
-                        .long("label")
-                        .help("Name given to the address")
-                    )
-                    .arg_required_else_help(true),
                 )
                 .subcommand(
                     Command::new("build")
@@ -1034,26 +1026,30 @@ fn main() {
                                 else{
                                     Network::Testnet
                                 };
-                                match update_contract(
-                                    network.clone(), 
-                                    settings.clone(),
-                                    host.clone() , 
-                                    username.clone(), 
-                                    password.clone(), 
-                                    data.clone(), 
-                                    sender, 
-                                    post.owner
-                                ){
-                                    Ok(post_id)=>{
-                                        let one_sec = time::Duration::from_millis(1000);                            
-                                        thread::sleep(one_sec);
-                                        socket.write_message(Message::Text(post_id.into())).unwrap();
-                                    }
-                                    Err(_)=>{
-                                        ()
-                                    }
-                                };
-
+                                if post.owner == keypair.clone().pubkey{
+                                    ()
+                                }
+                                else{
+                                    match update_contract(
+                                        network.clone(), 
+                                        settings.clone(),
+                                        host.clone() , 
+                                        username.clone(), 
+                                        password.clone(), 
+                                        data.clone(), 
+                                        sender, 
+                                        post.owner
+                                    ){
+                                        Ok(post_id)=>{
+                                            let one_sec = time::Duration::from_millis(1000);                            
+                                            thread::sleep(one_sec);
+                                            socket.write_message(Message::Text(post_id.into())).unwrap();
+                                        }
+                                        Err(_)=>{
+                                            ()
+                                        }
+                                    };
+                                }
                             }
 
                         }
@@ -1083,26 +1079,30 @@ fn main() {
                                             else{
                                                 Network::Testnet
                                             };
-            
-                                            match update_contract(
-                                                network.clone(), 
-                                                settings.clone(),
-                                                host.clone() , 
-                                                username.clone(), 
-                                                password.clone(), 
-                                                data.clone(), 
-                                                sender, 
-                                                post.owner
-                                            ){
-                                                Ok(post_id)=>{
-                                                    let one_sec = time::Duration::from_millis(1000);                            
-                                                    thread::sleep(one_sec);
-                                                    socket.write_message(Message::Text(post_id.into())).unwrap();
-                                                }
-                                                Err(_)=>{
-                                                    ()
-                                                }
-                                            };
+                                            if post.owner == keypair.clone().pubkey{
+                                                ()
+                                            }
+                                            else{
+                                                match update_contract(
+                                                    network.clone(), 
+                                                    settings.clone(),
+                                                    host.clone() , 
+                                                    username.clone(), 
+                                                    password.clone(), 
+                                                    data.clone(), 
+                                                    sender, 
+                                                    post.owner
+                                                ){
+                                                    Ok(post_id)=>{
+                                                        let one_sec = time::Duration::from_millis(1000);                            
+                                                        thread::sleep(one_sec);
+                                                        socket.write_message(Message::Text(post_id.into())).unwrap();
+                                                    }
+                                                    Err(_)=>{
+                                                        ()
+                                                    }
+                                                };
+                                            }
 
                                         }
             
@@ -1252,13 +1252,17 @@ fn main() {
                     let role: String = read!("{}\n");   
                     let role = InheritanceRole::from_str(&role).unwrap();
 
+                    print!("Choose an account number?");
+                    let account: String = read!("{}\n");   
+                    let account = account.parse::<u64>().unwrap();
+
                     let timelock = 100;
                     let counter_party_alias: String;
                     // get curent block height and add timelock
                     let id = "s5wid".to_string() + &nonce();
                     let xpub_info = XPubInfo::new(
                         child.fingerprint,
-                        0,
+                        account,
                         child.xpub
                     );
 
@@ -1378,7 +1382,6 @@ fn main() {
 
                 }
                 Some(("info", _)) => {
-
                     let settings = match settings::storage::read(){
                         Ok(value)=>value,
                         Err(e)=>{
@@ -1419,6 +1422,44 @@ fn main() {
 
                 }
                 Some(("receive", _)) => {
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                            return;
+                        } 
+                    };
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                        return;
+                    }
+
+
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+
+                    print!("Enter your contract id: ");
+                    let contract_id: String = read!("{}\n");
+
+                    let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
+                    let config = WalletConfig::new_offline(&contract.clone().public_descriptor.unwrap(),None).unwrap();
+                    let address = contract::address::generate(config,0).unwrap();
+                    fmt_print(&address.address)
                 }
                 Some(("build", _)) => {
                 }
@@ -1522,9 +1563,10 @@ fn new_contract_from_data(
         }
     }
     contract.update_public_policy();
+    contract.compile_public_descriptor().unwrap();
     contract::storage::store_inheritance_contract(username.clone(),contract.clone().id,password.clone(),contract.clone()).unwrap();
     // baesd on contract.role, send message to counter_party_alias with id & XPubInfo
-
+    println!("CONTRACT {} COMPLETED!",contract.id);
     let to: Vec<XOnlyPublicKey> = [sender_pubkey].to_vec();
 
     let recipient = Recipient::Group(contract.clone().id);        
@@ -1606,6 +1648,9 @@ fn update_contract(
                 Err(())
             }
             else {
+                if contract.clone().role.to_string() == data.clone().role.to_string() {
+                    return Err(());
+                }
                 match contract.role {
                     InheritanceRole::Parent=>{
                         contract.add_child_xpub(data.counter_party)
@@ -1620,6 +1665,7 @@ fn update_contract(
                 }
                 if contract.clone().is_complete(){
                     println!("CONTRACT {} COMPLETED!",contract.id);
+                    contract.compile_public_descriptor().unwrap();
                 }
                 contract::storage::store_inheritance_contract(username.clone(),data.id,password.clone(),contract).unwrap();
                 Err(())
