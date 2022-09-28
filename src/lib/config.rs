@@ -290,7 +290,7 @@ mod tests {
     match config.client.unwrap() {
       AnyBlockchain::Electrum(client) => {
         let fee = client.estimate_fee(8);
-        assert_eq!((fee.unwrap().as_sat_per_vb() > 0.0), true);
+        assert_eq!((fee.unwrap().as_sat_vb() > 0.0), true);
       }
       _ => println!("Should not reach."),
     };
@@ -311,7 +311,7 @@ mod tests {
     match config.client.unwrap() {
       AnyBlockchain::Rpc(client) => {
         let fee = client.estimate_fee(8);
-        assert_eq!((fee.unwrap().as_sat_per_vb() > 0.0), true);
+        assert_eq!((fee.unwrap().as_sat_vb() > 0.0), true);
       }
       _ => println!("Should not reach."),
     };
