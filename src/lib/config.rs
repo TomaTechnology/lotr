@@ -16,7 +16,7 @@ pub const DEFAULT_TESTNET_NODE: &str = "ssl://electrum.blockstream.info:60002";
 pub const DEFAULT_MAINNET_NODE: &str = "ssl://electrum.blockstream.info:50002";
 pub const DEFAULT_MAIN_NETWORK: &str = "lotr.toma.tech";
 pub const DEFAULT_TEST_NETWORK: &str = "localhost:3021";
-pub const DEFAULT_SQLITE: &str = ".lotr/sqlite"; // Database
+pub const DEFAULT_SQLITE: &str = ".lotr/sqlite"; // Database Path
 
 pub struct WalletConfig {
   pub deposit_desc: String,

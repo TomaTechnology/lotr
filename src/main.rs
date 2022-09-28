@@ -4,6 +4,8 @@
 extern crate text_io;
 
 use::std::fs;
+use qrcode::{QrCode, Version, EcLevel};
+use qrcode::render::unicode;
 
 use clap::{App, AppSettings, Arg, Command};
 extern crate rpassword;    
@@ -15,7 +17,7 @@ use bitcoin::secp256k1::{XOnlyPublicKey};
 
 mod lib;
 use crate::lib::e::{ErrorKind};
-use crate::lib::config::{WalletConfig,DEFAULT_TEST_NETWORK, DEFAULT_TESTNET_NODE};
+use crate::lib::config::{WalletConfig,DEFAULT_MAINNET_NODE, DEFAULT_TEST_NETWORK, DEFAULT_TESTNET_NODE, DEFAULT_SQLITE};
 use crate::lib::sleddb;
 
 
@@ -53,6 +55,8 @@ fn fmt_print_struct(message: &str, item: impl Debug)->(){
 }
 
 fn main() {
+    std::env::set_var("RUST_BACKTRACE", "1");
+
     let matches = App::new("\x1b[0;92ml✠tr\x1b[0m")
         .about("\x1b[0;94mLeverage ✠f The Remnants\x1b[0m")
         .version("\x1b[0;1mv0.1.3\x1b[0m")
@@ -248,6 +252,11 @@ fn main() {
                     Command::new("check")
                     .about("Check if a psbt is pending signature")
                     .display_order(4)
+                )
+                .subcommand(
+                    Command::new("send")
+                    .about("Composite build, check, sign and broadcast")
+                    .display_order(5)
                 )
                 .subcommand(
                     Command::new("sign")
@@ -1417,8 +1426,44 @@ fn main() {
                     let contract_id: String = read!("{}\n");
 
                     let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
+                    let is_completed = contract.clone().is_complete();
+                    fmt_print_struct("CONTRACT STATUS: ", if is_completed{"ACTIVE"} else {"PENDING"});
 
-                    fmt_print_struct("CONTRACT INFO", contract);
+                    if !is_completed{
+                        return;
+                    }
+
+                    let sqlite_path = format!("{}/{}", std::env::var("HOME").unwrap(), DEFAULT_SQLITE);
+                    let config = WalletConfig::new(
+                        &contract.clone().public_descriptor.unwrap(),
+                        DEFAULT_MAINNET_NODE,
+                        None,
+                        Some(sqlite_path.clone())
+                    ).unwrap();
+                    contract::sync::sqlite(config).unwrap();
+
+                    let config = WalletConfig::new(
+                        &contract.clone().public_descriptor.unwrap(),
+                        DEFAULT_MAINNET_NODE,
+                        None,
+                        Some(sqlite_path.clone())
+                    ).unwrap();
+
+                    let balance = contract::info::sqlite_balance(config).unwrap();
+                   
+                    let config = WalletConfig::new(
+                        &contract.clone().public_descriptor.unwrap(),
+                        DEFAULT_MAINNET_NODE,
+                        None,
+                        Some(sqlite_path.clone())
+                    ).unwrap();
+
+                    let history = contract::info::sqlite_history(config).unwrap();
+                    
+                    fmt_print_struct("HISTORY: ", history);
+                    fmt_print_struct("", balance);
+                    ()
+
 
                 }
                 Some(("receive", _)) => {
@@ -1455,11 +1500,25 @@ fn main() {
 
                     print!("Enter your contract id: ");
                     let contract_id: String = read!("{}\n");
-
                     let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
-                    let config = WalletConfig::new_offline(&contract.clone().public_descriptor.unwrap(),None).unwrap();
-                    let address = contract::address::generate(config,0).unwrap();
-                    fmt_print(&address.address)
+                    let sqlite_path = format!("{}/{}", std::env::var("HOME").unwrap(), DEFAULT_SQLITE);
+                    let config = WalletConfig::new(
+                        &contract.clone().public_descriptor.unwrap(),
+                        DEFAULT_MAINNET_NODE,
+                        None,
+                        Some(sqlite_path.clone())
+                    ).unwrap();
+                    contract::sync::sqlite(config).unwrap();
+                    let config = WalletConfig::new_offline(&contract.clone().public_descriptor.unwrap(),Some(sqlite_path.clone())).unwrap();
+                    let address = contract::address::sqlite_generate(config).unwrap();
+
+                    let code = QrCode::new(address.address.as_bytes()).unwrap();
+                    let image = code.render::<unicode::Dense1x2>()
+                        .dark_color(unicode::Dense1x2::Dark)
+                        .light_color(unicode::Dense1x2::Dark)
+                        .build();
+                    println!("{}", image);
+                    fmt_print(&address.address);
                 }
                 Some(("build", _)) => {
                 }
@@ -1468,6 +1527,9 @@ fn main() {
                 Some(("sign", _)) => {
                 }
                 Some(("broadcast", _)) => {
+                }
+                Some(("send", _))=>{
+
                 }
                 Some(("backup", _)) => {
                 }

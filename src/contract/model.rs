@@ -8,10 +8,8 @@ use std::str::FromStr;
 use crate::lib::e::{ErrorKind, S5Error};
 use crate::key::encryption::{cc20p1305_encrypt,cc20p1305_decrypt};
 
-pub const LOAN : &str = "thresh(1, thresh(2,D,B,E), thresh(2,thresh(1,D,B),after(T)))";
+pub const LOTR : &str = "thresh(1, thresh(2,D,B,E), thresh(2,thresh(1,D,B),after(T)))";
 pub const TRADE : &str = "thresh(1, thresh(2,B,S,E), thresh(2,S,after(T)))";
-
-
 pub const INHERIT : &str = "thresh(1,pk(PARENT),thresh(2,pk(CHILD),after(TIMELOCK)))";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
