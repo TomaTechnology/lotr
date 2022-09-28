@@ -10,6 +10,8 @@ use crate::key::encryption::{cc20p1305_encrypt,cc20p1305_decrypt};
 
 pub const LOAN : &str = "thresh(1, thresh(2,D,B,E), thresh(2,thresh(1,D,B),after(T)))";
 pub const TRADE : &str = "thresh(1, thresh(2,B,S,E), thresh(2,S,after(T)))";
+
+
 pub const INHERIT : &str = "thresh(1,pk(PARENT),thresh(2,pk(CHILD),after(TIMELOCK)))";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -68,10 +70,10 @@ pub struct InheritanceContract{
 }
 
 impl InheritanceContract{
-    pub fn new_as_parent(name: String, xprv: ExtendedPrivKey, parent: Participant, child_name: String, timelock: u64)->Self{
+    pub fn new_as_parent(name: String, id: String, xprv: ExtendedPrivKey, parent: Participant, child_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
-            id: "s5w".to_string() + &nonce(),
+            id,
             role: InheritanceRole::Parent,
             xprv,
             parent,
@@ -81,10 +83,10 @@ impl InheritanceContract{
             public_descriptor: None
         }
     }
-    pub fn new_as_child(name: String,xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
+    pub fn new_as_child(name: String, id: String, xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
-            id: "s5w".to_string() + &nonce(),
+            id,
             role: InheritanceRole::Child,
             xprv,
             parent:Participant::new(parent_name,None) ,
@@ -176,6 +178,41 @@ impl InheritanceContract{
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InheritanceContractPublicData{
+    pub name : String, 
+    pub id: String,
+    pub role: InheritanceRole,
+    pub counter_party: XPubInfo,
+    pub timelock: u64
+}
+impl InheritanceContractPublicData{
+    pub fn new(name: String, id: String, role: InheritanceRole, counter_party: XPubInfo, timelock: u64) -> InheritanceContractPublicData{
+        InheritanceContractPublicData{
+            name: name,
+            id: id,
+            role: role,
+            counter_party: counter_party,
+            timelock: timelock
+        }
+    }
+    pub fn stringify(&self) -> Result<String, S5Error> {
+        match serde_json::to_string(self) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying InheritanceContractPublicData"))
+            }
+        }
+    }
+    pub fn structify(stringified: &str) -> Result<InheritanceContractPublicData, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying InheritanceContractPublicData"))
+            }
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Participant{
@@ -237,6 +274,7 @@ mod tests {
 
         let mut contract_parent = InheritanceContract::new_as_parent(
             "GotYourBack".to_string(), 
+            nonce(),
             seed1.xprv,
             Participant::new(
                 "ishi".to_string(),
@@ -260,6 +298,7 @@ mod tests {
 
         let mut contract_child = InheritanceContract::new_as_child(
             "GotYourBack".to_string(),
+            nonce(),
             seed2.xprv,
             Participant::new(
                 "sushi".to_string(),

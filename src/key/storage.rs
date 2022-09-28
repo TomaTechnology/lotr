@@ -1,16 +1,17 @@
 use crate::lib::sleddb;
 use crate::lib::e::{ErrorKind, S5Error};
 use crate::key::seed::{MasterKeySeed};
+use bdk::bitcoin::network::constants::Network;
 
-pub fn create_keys(password: String, master: MasterKeySeed)->Result<(), S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey,None).unwrap();
+pub fn create_keys(password: String, master: MasterKeySeed, network: Network)->Result<(), S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey,Some(network.to_string())).unwrap();
     let main_tree = sleddb::get_tree(db, "keys").unwrap();
     let cipher = master.encrypt(&password);
     main_tree.insert("0", cipher.as_bytes()).unwrap();
     Ok(())
 }
-pub fn read_keys(password: String)->Result<MasterKeySeed, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey,None).unwrap();
+pub fn read_keys(password: String, network: Network)->Result<MasterKeySeed, S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey,Some(network.to_string())).unwrap();
     match sleddb::get_tree(db.clone(), "keys"){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
@@ -34,8 +35,8 @@ pub fn read_keys(password: String)->Result<MasterKeySeed, S5Error>{
         }
     }
 }
-pub fn delete_keys()->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey,None).unwrap();
+pub fn delete_keys(network: Network)->bool{
+    let db = sleddb::get_root(sleddb::LotrDatabase::MasterKey,Some(network.to_string())).unwrap();
     let tree = sleddb::get_tree(db.clone(), "keys").unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();

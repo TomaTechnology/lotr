@@ -9,7 +9,7 @@ use crate::lib::e::{S5Error,ErrorKind};
 use crate::network::identity::model::{MemberIdentity, UserIdentity};
 use crate::lib::config::{DEFAULT_TEST_NETWORK, DEFAULT_MAIN_NETWORK, DEFAULT_MAINNET_NODE, DEFAULT_TESTNET_NODE};
 use bdk::bitcoin::network::constants::Network;
-use crate::contract::model::{XPubInfo};
+use crate::contract::model::{InheritanceContractPublicData};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalPostModel {
@@ -82,14 +82,11 @@ impl Recipient {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Payload {
-    Ping, // All contracts start with a ping
-    ChecksumPong(String), // All pings responded with pong and checksum proof.
+    Ping,
+    ChecksumPong(String), 
     Message(String),
-    // Comment(Comment), // comment on another post
-    PolicyXpub(XPubInfo),
-    // Address(WalletAddress),
-    // Psbt(WalletPsbt),
-    // Jitsi(String),
+    StartInheritance(InheritanceContractPublicData),
+
 }
 impl Payload {
     pub fn to_string(&self)->String{
@@ -97,7 +94,7 @@ impl Payload {
             Payload::Ping=>"Ping".to_string(),
             Payload::ChecksumPong(checksum)=>checksum.to_string(),
             Payload::Message(text)=>text.to_string(),
-            Payload::PolicyXpub(xpub)=>xpub.to_full_xkey()
+            Payload::StartInheritance(data)=>data.stringify().unwrap()
         }
     }
 }

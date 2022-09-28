@@ -16,16 +16,18 @@ pub struct MemberIdentity{
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserIdentity{
     pub username: String,
+    pub account: u64,
     pub social_root: ExtendedPrivKey,
     pub last_path: String,
 }
 
 impl UserIdentity {
-    pub fn new(username: String, root: ExtendedPrivKey)->Self{
-        let social_path = "m/128h/0h";
-        let social_root = child::to_path_str(root, social_path).unwrap().xprv;
+    pub fn new(username: String, account: u64, root: ExtendedPrivKey)->Self{
+        let social_path = "m/128h/0h/".to_string() + &account.to_string() + "h";
+        let social_root = child::to_path_str(root, &social_path).unwrap().xprv;
         UserIdentity{
             username,
+            account,
             social_root,
             last_path: "m/1h/0h".to_string()
         }

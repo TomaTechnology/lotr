@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::ffi::CString;
 use std::os::raw::c_char;
 
-/// FFI Output
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WalletAddress {
     pub address: String,

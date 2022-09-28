@@ -5,16 +5,16 @@ use bitcoin::secp256k1::{XOnlyPublicKey};
 use crate::contract::model::{InheritanceContract};
 use std::str;
 
-pub fn store_inheritance_contract(host: String, name: String, password: String, contract:InheritanceContract)->Result<(), S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(host)).unwrap();
-    let main_tree = sleddb::get_tree(db, &name).unwrap();
+pub fn store_inheritance_contract(username: String, id: String, password: String, contract:InheritanceContract)->Result<(), S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(username)).unwrap();
+    let main_tree = sleddb::get_tree(db, &id).unwrap();
     // TODO!!! check if tree contains data, do not insert
     main_tree.insert("0", contract.encrypt(password).as_bytes()).unwrap();
     Ok(())
 }
-pub fn read_inheritance_contract(host: String, name: String, password:String)->Result<InheritanceContract, S5Error>{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(host)).unwrap();
-    match sleddb::get_tree(db.clone(), &name){
+pub fn read_inheritance_contract(username: String, id: String, password:String)->Result<InheritanceContract, S5Error>{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(username)).unwrap();
+    match sleddb::get_tree(db.clone(), &id){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
             match tree.get("0").unwrap() {
@@ -35,9 +35,9 @@ pub fn read_inheritance_contract(host: String, name: String, password:String)->R
     }
 }
 
-pub fn delete_inheritance_contract(host: String, name: String)->bool{
-    let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(host)).unwrap();
-    let tree = sleddb::get_tree(db.clone(), &name).unwrap();
+pub fn delete_inheritance_contract(username: String, id: String)->bool{
+    let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(username)).unwrap();
+    let tree = sleddb::get_tree(db.clone(), &id).unwrap();
     tree.clear().unwrap();
     tree.flush().unwrap();
     true

@@ -38,9 +38,8 @@ impl MasterKeySeed{
     let master = match cc20p1305_decrypt(&cipher, &password){
       Ok(value)=>value,
       Err(e)=>return Err(e)
-  };
-
-  Ok(MasterKeySeed::structify(&master).unwrap())
+    };
+    Ok(MasterKeySeed::structify(&master).unwrap())
   }
 }
 

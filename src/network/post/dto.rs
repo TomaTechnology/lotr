@@ -358,7 +358,7 @@ mod tests {
 
         let seed1 = seed::generate(24, "", Network::Bitcoin).unwrap();
         let user1 = "builder".to_string() + &nonce[0..3];
-        let mut my_identity = UserIdentity::new(user1.clone(),seed1.xprv);
+        let mut my_identity = UserIdentity::new(user1.clone(),0,seed1.xprv);
         let xonly_pair1 = ec::XOnlyPair::from_xprv(my_identity.social_root);
 
         assert!(register(url, xonly_pair1.clone(), &client_invite_code1, &user1).is_ok());
