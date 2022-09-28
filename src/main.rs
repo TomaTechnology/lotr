@@ -22,10 +22,15 @@ mod settings;
 use crate::settings::model::{MySettings,ServerKind};
 mod key;
 use crate::key::ec::{XOnlyPair};
+use crate::key::seed::{self,MasterKeySeed};
+use crate::key::child::{self,ChildKeys};
+
 mod network;
 use network::identity;
 use network::post::{self, model::{Payload,Post,Recipient,DecryptionKey}, dto::{ServerPostRequest, ServerPostModel}};
+
 mod contract;
+use crate::contract::model::{ContractKind,InheritanceContract,InheritanceRole,Participant,XPubInfo};
 
 use std::{thread, time};
 use tungstenite::{Message};
@@ -123,6 +128,14 @@ fn main() {
                         .short('k')
                         .long("kind")
                         .help("Which kind of contract would you like to create? I(nheritance) or L(oan)")
+                    )
+                    .arg(
+                        Arg::with_name("import")
+                        .takes_value(false)
+                        .short('i')
+                        .long("import")
+                        .help("Import a seed rather than generate a new one.")
+                        .required(false)
                     )
                 )
                 .subcommand(
@@ -335,7 +348,8 @@ fn main() {
                     
                     match identity::dto::register(&host, keypair, &invite_code, &username){
                         Ok(_)=>{
-                            identity::storage::create_my_identity(settings.clone().network_host, identity.clone(),password).unwrap();
+                            identity::storage::create_my_identity(settings.clone().network_host, identity.clone(),password.clone()).unwrap();
+                            key::storage::create_keys(password, seed.clone()).unwrap();
                             println!("WRITE DOWN YOUR MASTER KEY DATA!\n\nMnemonic: {}\n\nFingerprint: {}", seed.mnemonic.to_string(),seed.fingerprint);
                             fmt_print("USER REGISTERED!");
                         }
@@ -746,7 +760,178 @@ fn main() {
         Some(("contract", service_matches))=>{
             match service_matches.subcommand() {
                 Some(("new", sub_matches)) => {
-                    
+                    let kind = sub_matches.value_of("kind");
+                    let import = sub_matches.is_present("import");
+
+                    let kind = match kind {
+                        Some(val)=>{
+                            ContractKind::from_str(val)
+                        }
+                        None=>{
+                            ContractKind::Inherit
+                        }
+                    };
+                
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                            return;
+                        } 
+                    };
+                    let host = settings.network_url_parse(ServerKind::Standard); 
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                        return;
+                    }
+
+                    let seed= key::storage::read_keys(password.clone()).unwrap();
+                    let child = child::to_hardened_account(seed.clone().xprv, child::DerivationPurpose::Native, 0).unwrap();
+
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+
+                    print!("What is your role in this contract (P)arent or (C)hild)?");
+                    let role: String = read!("{}\n");   
+                    let role = InheritanceRole::from_str(&role).unwrap();
+
+                    let timelock = 100;
+                    let mut counter_party_alias: String;
+                    // get curent block height and add timelock
+                    let contract = match role {
+                        InheritanceRole::Parent=>{
+                            print!("Who is the child (must be a registered username)?");
+                            counter_party_alias = read!("{}\n");  
+                            InheritanceContract::new_as_parent(
+                                username.clone(), 
+                                child.xprv, 
+                                Participant::new(
+                                    username.clone(),
+                                    Some(XPubInfo::new(
+                                        child.fingerprint,
+                                        0,
+                                        child.xpub
+                                    ))
+                                ), 
+                                counter_party_alias.clone(),
+                                timelock
+                            )
+                        }
+                        InheritanceRole::Child=>{
+                            print!("Who is the parent (must be a registered username)?");
+                            counter_party_alias = read!("{}\n");  
+                            InheritanceContract::new_as_child(
+                                username.clone(), 
+                                child.xprv, 
+                                Participant::new(
+                                    username.clone(),
+                                    Some(XPubInfo::new(
+                                        child.fingerprint,
+                                        0,
+                                        child.xpub
+                                    ))
+                                ), 
+                                counter_party_alias.clone(),
+                                timelock
+                            )
+                        }
+                    };
+
+                    // SAVE CONTRACT TO DISK
+                    contract::storage::store_inheritance_contract(host.clone(),contract.clone().name,password.clone(),contract.clone()).unwrap();
+                    // baesd on contract.role, send message to counter_party_alias with id & XPubInfo
+
+                    let to: Vec<XOnlyPublicKey> = match network::identity::storage::read_all_members(settings.clone().network_host)
+                    {
+                        Ok(mut result)=>{
+                            result.retain(|x| x.username == counter_party_alias);
+                            let xonly_pubs = result.into_iter().map(|item| item.pubkey).collect();
+                            xonly_pubs
+                        }
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!", e);
+                            return;
+                        }
+                    };
+                    println!("{:#?}",to);
+
+                    let recipient = Recipient::Group(contract.clone().id);
+                                        
+                    let mut identity = identity::storage::read_my_identity(settings.clone().network_host,username, password.clone()).unwrap();
+                    let keypair = XOnlyPair::from_xprv(identity.social_root);
+
+                    let message_to_share = match contract.clone().role{
+                        InheritanceRole::Parent=>{
+                            Payload::PolicyXpub(contract.clone().parent.key.unwrap())
+                        }
+                        InheritanceRole::Child=>{
+                            Payload::PolicyXpub(contract.clone().child.key.unwrap())
+                        }
+                    };
+
+                    let post = Post::new(recipient, message_to_share, keypair.clone()); 
+                    let encryption_key = identity.derive_encryption_key();
+                    let cypher_json = post.to_cypher(encryption_key.clone());
+                    let cpost_req = ServerPostRequest::new(0, &identity.last_path,&cypher_json);
+
+                    let post_id = match network::post::dto::create(&host, keypair.clone(),cpost_req){
+                        Ok(id)=>{
+                            // need to create identity again to update encryption derivation path
+                            network::identity::storage::create_my_identity(settings.clone().network_host,identity.clone(), password).unwrap();
+                            id
+                        }
+                        Err(e)=>{
+                            if e.kind == ErrorKind::Input.to_string(){
+                                fmt_print("BAD INPUTS!\nCheck the username and invite code used!");
+                                return
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return
+                            }
+                        }
+                    };
+
+                    let decryption_keys = DecryptionKey::make_for_many(keypair.clone(),to,encryption_key).unwrap();
+                    println!("{:#?}",decryption_keys);
+                    match network::post::dto::keys(&host, keypair.clone(), &post_id, decryption_keys){
+                        Ok(_)=>{
+                            fmt_print("SUCCESSFULLY POSTED PUBLIC KEY!");
+                            let ws_url = settings.network_url_parse(ServerKind::Websocket);
+                            let mut socket = network::notification::dto::sync(&ws_url, keypair).unwrap();
+                            let one_sec = time::Duration::from_millis(1000);                            
+                            thread::sleep(one_sec);
+                            socket.write_message(Message::Text(post_id.into())).unwrap();
+                            ()
+                        }
+                        Err(e)=>{
+                            if e.kind == ErrorKind::Input.to_string(){
+                                fmt_print("BAD INPUTS!\nCheck the username and invite code used!");
+                                return
+                            }
+                            else{
+                                fmt_print_struct("ERRORED!",e);
+                                return
+                            }
+                        }
+                    }
+
+
                 }
                 Some(("info", _)) => {
                 }

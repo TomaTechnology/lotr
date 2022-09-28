@@ -2,35 +2,78 @@ use serde::{Deserialize, Serialize};
 use crate::key::encryption::{nonce};
 use crate::contract::policy::{self, ScriptType};
 use crate::contract::address;
-use bitcoin::util::bip32::{DerivationPath, ExtendedPubKey, Fingerprint, ChildNumber};
+use bitcoin::util::bip32::{DerivationPath, ExtendedPubKey,ExtendedPrivKey, Fingerprint, ChildNumber};
 use std::marker::Copy;
+use std::str::FromStr;
+use crate::lib::e::{ErrorKind, S5Error};
+use crate::key::encryption::{cc20p1305_encrypt,cc20p1305_decrypt};
 
 pub const LOAN : &str = "thresh(1, thresh(2,D,B,E), thresh(2,thresh(1,D,B),after(T)))";
 pub const TRADE : &str = "thresh(1, thresh(2,B,S,E), thresh(2,S,after(T)))";
 pub const INHERIT : &str = "thresh(1,pk(PARENT),thresh(2,pk(CHILD),after(TIMELOCK)))";
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ContractKind{
     Inherit,
     Trade,
     Loan
 }
+impl ContractKind {
+    pub fn from_str(s: &str) -> ContractKind{
+        if s.to_lowercase().starts_with("i"){
+            ContractKind::Inherit
+        }
+        else if s.to_lowercase().starts_with("t"){
+            ContractKind::Trade
+        }else if s.to_lowercase().starts_with("l"){
+            ContractKind::Loan
+        }
+        else{
+            ContractKind::Inherit
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum InheritanceRole{
+    Parent,
+    Child
+}
+impl InheritanceRole {
+    pub fn from_str(s: &str) -> Result<InheritanceRole,String>{
+        if s.to_lowercase().starts_with("p"){
+            Ok(InheritanceRole::Parent)
+        }
+        else if s.to_lowercase().starts_with("c"){
+            Ok(InheritanceRole::Child)
+        }
+        else {
+            Err("Bad String to representation of InheritanceRole".to_string())
+        }
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InheritanceContract{
     pub name : String, 
     pub id: String,
+    pub role: InheritanceRole,
+    pub xprv: ExtendedPrivKey,
     pub parent: Participant,
     pub child : Participant,
     pub timelock: u64,
     pub public_policy: Option<String>,
-    pub public_descriptor: Option<String>
+    pub public_descriptor: Option<String>,
 }
 
 impl InheritanceContract{
-    pub fn new_as_parent(name: String, parent: Participant, child_name: String, timelock: u64)->Self{
+    pub fn new_as_parent(name: String, xprv: ExtendedPrivKey, parent: Participant, child_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
             id: "s5w".to_string() + &nonce(),
+            role: InheritanceRole::Parent,
+            xprv,
             parent,
             child: Participant::new(child_name,None),
             timelock,
@@ -38,10 +81,12 @@ impl InheritanceContract{
             public_descriptor: None
         }
     }
-    pub fn new_as_child(name: String, child: Participant, parent_name: String, timelock: u64)->Self{
+    pub fn new_as_child(name: String,xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
             id: "s5w".to_string() + &nonce(),
+            role: InheritanceRole::Child,
+            xprv,
             parent:Participant::new(parent_name,None) ,
             child,
             timelock,
@@ -102,14 +147,40 @@ impl InheritanceContract{
             Err(false)
         }
     }
+    pub fn stringify(&self) -> Result<String, S5Error> {
+        match serde_json::to_string(self) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying InheritanceContract"))
+            }
+        }
+    }
+    pub fn structify(stringified: &str) -> Result<InheritanceContract, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying InheritanceContract"))
+            }
+        }
+    }
+    pub fn encrypt(&self, password: String)->String{
+        cc20p1305_encrypt(&self.stringify().unwrap(), &password).unwrap()
+    }
+    pub fn decrypt(cipher: String, password: String)->Result<InheritanceContract, S5Error>{
+        let id = match cc20p1305_decrypt(&cipher, &password){
+            Ok(value)=>value,
+            Err(e)=>return Err(e)
+        };
 
+        Ok(InheritanceContract::structify(&id).unwrap())
+    }
 }
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Participant{
-    name: String,
-    key: Option<XPubInfo>,
+    pub name: String,
+    pub key: Option<XPubInfo>,
 }
 impl Participant {
     pub fn new(name: String, key: Option<XPubInfo>)->Self{
@@ -150,7 +221,6 @@ mod tests {
     use crate::key::child;
     use crate::network::post::model::{Post,Payload,Recipient};
     use bdk::bitcoin::network::constants::Network;
-    use crate::network::identity::model::{UserIdentity};
     use crate::lib::config::{WalletConfig,DEFAULT_SQLITE};
     use std::env;
 
@@ -167,6 +237,7 @@ mod tests {
 
         let mut contract_parent = InheritanceContract::new_as_parent(
             "GotYourBack".to_string(), 
+            seed1.xprv,
             Participant::new(
                 "ishi".to_string(),
                 Some(ishi_xpub.clone())
@@ -188,7 +259,8 @@ mod tests {
         );
 
         let mut contract_child = InheritanceContract::new_as_child(
-            "GotYourBack".to_string(), 
+            "GotYourBack".to_string(),
+            seed2.xprv,
             Participant::new(
                 "sushi".to_string(),
                 Some(sushi_xpub.clone())

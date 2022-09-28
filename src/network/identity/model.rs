@@ -34,7 +34,7 @@ impl UserIdentity {
         match serde_json::to_string(self) {
             Ok(result) => Ok(result),
             Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying KeyStore"))
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying UserIdentity"))
             }
         }
     }
@@ -42,7 +42,7 @@ impl UserIdentity {
         match serde_json::from_str(stringified) {
             Ok(result) => Ok(result),
             Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying AllIdentitiesResponse"))
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying UserIdentity"))
             }
         }
     }

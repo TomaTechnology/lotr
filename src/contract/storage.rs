@@ -5,23 +5,22 @@ use bitcoin::secp256k1::{XOnlyPublicKey};
 use crate::contract::model::{InheritanceContract};
 use std::str;
 
-pub fn store_inheritance_contract(host: String, contract:InheritanceContract)->Result<bool, S5Error>{
+pub fn store_inheritance_contract(host: String, name: String, password: String, contract:InheritanceContract)->Result<(), S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(host)).unwrap();
-    let main_tree = sleddb::get_tree(db, &contract.name).unwrap();
+    let main_tree = sleddb::get_tree(db, &name).unwrap();
     // TODO!!! check if tree contains data, do not insert
-    let bytes = bincode::serialize(&contract).unwrap();
-    main_tree.insert("0", bytes).unwrap();
-    Ok(true)
+    main_tree.insert("0", contract.encrypt(password).as_bytes()).unwrap();
+    Ok(())
 }
-pub fn read_inheritance_contract(host: String, name: String)->Result<InheritanceContract, S5Error>{
+pub fn read_inheritance_contract(host: String, name: String, password:String)->Result<InheritanceContract, S5Error>{
     let db = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(host)).unwrap();
     match sleddb::get_tree(db.clone(), &name){
         Ok(tree)=>{
             if tree.contains_key(b"0").unwrap() {
             match tree.get("0").unwrap() {
                 Some(bytes) => {
-                    let key_store:InheritanceContract = bincode::deserialize(&bytes).unwrap();
-                    Ok(key_store)
+                    let contract:InheritanceContract = InheritanceContract::decrypt(std::str::from_utf8(&bytes).unwrap().to_string(),password).unwrap();
+                    Ok(contract)
                 },
                 None => Err(S5Error::new(ErrorKind::Internal, "No InheritanceContract found in contract tree"))
             }
