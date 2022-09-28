@@ -80,7 +80,7 @@ impl InheritanceContract{
             child: Participant::new(child_name,None),
             timelock,
             public_policy: None,
-            public_descriptor: None
+            public_descriptor: None,
         }
     }
     pub fn new_as_child(name: String, id: String, xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
@@ -93,7 +93,8 @@ impl InheritanceContract{
             child,
             timelock,
             public_policy: None,
-            public_descriptor: None
+            public_descriptor: None,
+
         }
     }
     pub fn add_parent_xpub(&mut self, xpub: XPubInfo)->(){
@@ -122,18 +123,16 @@ impl InheritanceContract{
         self.parent.key.is_some() && self.child.key.is_some()
     }
 
-    pub fn update_public_policy(&mut self)->Result<(), bool>{
+    pub fn update_public_policy(&mut self)->(){
         if self.is_ready() && self.public_policy.is_none(){
             let policy = INHERIT.clone().to_string()
                 .replace("PARENT", &self.clone().parent.key.unwrap().to_full_xkey())
                 .replace("CHILD", &self.clone().child.key.unwrap().to_full_xkey())
                 .replace("TIMELOCK", &self.timelock.to_string());
             self.public_policy = Some(policy.to_string());
-            Ok(())
+            
         }
-        else {
-            Err(false)
-        }
+        ()
     }
     pub fn is_complete(&self)->bool{
         self.public_policy.is_some()
@@ -176,6 +175,7 @@ impl InheritanceContract{
 
         Ok(InheritanceContract::structify(&id).unwrap())
     }
+
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -323,8 +323,8 @@ mod tests {
         assert!(contract_child.is_ready());
         assert!(contract_parent.is_ready());
 
-        contract_child.update_public_policy().unwrap();
-        contract_parent.update_public_policy().unwrap();
+        contract_child.update_public_policy();
+        contract_parent.update_public_policy();
         contract_child.compile_public_descriptor().unwrap();
         contract_parent.compile_public_descriptor().unwrap();
 

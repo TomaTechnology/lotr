@@ -1521,7 +1521,7 @@ fn new_contract_from_data(
             contract.add_child_xpub(data.counter_party.clone());
         }
     }
-    contract.update_public_policy().unwrap();
+    contract.update_public_policy();
     contract::storage::store_inheritance_contract(username.clone(),contract.clone().id,password.clone(),contract.clone()).unwrap();
     // baesd on contract.role, send message to counter_party_alias with id & XPubInfo
 
@@ -1616,13 +1616,12 @@ fn update_contract(
                 };
                 contract.timelock = data.timelock;
                 if contract.is_ready(){
-                    contract.update_public_policy().unwrap();
+                    contract.update_public_policy();
                 }
                 if contract.clone().is_complete(){
                     println!("CONTRACT {} COMPLETED!",contract.id);
                 }
                 contract::storage::store_inheritance_contract(username.clone(),data.id,password.clone(),contract).unwrap();
-                
                 Err(())
             }
         }

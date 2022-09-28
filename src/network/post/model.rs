@@ -86,7 +86,6 @@ pub enum Payload {
     ChecksumPong(String), 
     Message(String),
     StartInheritance(InheritanceContractPublicData),
-
 }
 impl Payload {
     pub fn to_string(&self)->String{
@@ -94,7 +93,7 @@ impl Payload {
             Payload::Ping=>"Ping".to_string(),
             Payload::ChecksumPong(checksum)=>checksum.to_string(),
             Payload::Message(text)=>text.to_string(),
-            Payload::StartInheritance(data)=>data.stringify().unwrap()
+            Payload::StartInheritance(data)=>data.stringify().unwrap(),
         }
     }
 }
