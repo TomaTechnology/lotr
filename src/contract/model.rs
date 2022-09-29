@@ -14,14 +14,21 @@ pub const INHERIT : &str = "thresh(1,pk(PARENT),thresh(2,pk(CHILD),after(TIMELOC
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ContractKind{
-    Inherit,
+    Inheritance,
     Trade,
     Loan
 }
 impl ContractKind {
+    pub fn to_string(&self)->String{
+        match self{
+            ContractKind::Inheritance=>"Inheritance".to_string(),
+            ContractKind::Trade=>"Trade".to_string(),
+            ContractKind::Loan=>"LOTR".to_string()
+        }
+    }
     pub fn from_str(s: &str) -> ContractKind{
         if s.to_lowercase().starts_with("i"){
-            ContractKind::Inherit
+            ContractKind::Inheritance
         }
         else if s.to_lowercase().starts_with("t"){
             ContractKind::Trade
@@ -29,7 +36,7 @@ impl ContractKind {
             ContractKind::Loan
         }
         else{
-            ContractKind::Inherit
+            ContractKind::Inheritance
         }
     }
 }
@@ -66,7 +73,7 @@ impl InheritanceRole {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InheritanceContract{
-    pub name : String, 
+    pub name : ContractKind, 
     pub id: String,
     pub role: InheritanceRole,
     pub xprv: ExtendedPrivKey,
@@ -78,7 +85,7 @@ pub struct InheritanceContract{
 }
 
 impl InheritanceContract{
-    pub fn new_as_parent(name: String, id: String, xprv: ExtendedPrivKey, parent: Participant, child_name: String, timelock: u64)->Self{
+    pub fn new_as_parent(name: ContractKind, id: String, xprv: ExtendedPrivKey, parent: Participant, child_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
             id,
@@ -91,7 +98,7 @@ impl InheritanceContract{
             public_descriptor: None,
         }
     }
-    pub fn new_as_child(name: String, id: String, xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
+    pub fn new_as_child(name: ContractKind, id: String, xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
             id,
@@ -204,16 +211,16 @@ impl InheritanceContract{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InheritanceContractPublicData{
-    pub name : String, 
+    pub name : ContractKind, 
     pub id: String,
     pub role: InheritanceRole,
     pub counter_party: XPubInfo,
     pub timelock: u64
 }
 impl InheritanceContractPublicData{
-    pub fn new(name: String, id: String, role: InheritanceRole, counter_party: XPubInfo, timelock: u64) -> InheritanceContractPublicData{
+    pub fn new(name: ContractKind, id: String, role: InheritanceRole, counter_party: XPubInfo, timelock: u64) -> InheritanceContractPublicData{
         InheritanceContractPublicData{
-            name: name,
+            name,
             id: id,
             role: role,
             counter_party: counter_party,
@@ -297,7 +304,7 @@ mod tests {
         );
 
         let mut contract_parent = InheritanceContract::new_as_parent(
-            "GotYourBack".to_string(), 
+            ContractKind::Inheritance,
             nonce(),
             seed1.xprv,
             Participant::new(
@@ -321,7 +328,7 @@ mod tests {
         );
 
         let mut contract_child = InheritanceContract::new_as_child(
-            "GotYourBack".to_string(),
+            ContractKind::Inheritance,
             nonce(),
             seed2.xprv,
             Participant::new(

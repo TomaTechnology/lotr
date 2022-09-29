@@ -1272,7 +1272,7 @@ fn main() {
                             print!("Who is the child (must be a registered username)?");
                             counter_party_alias = read!("{}\n");  
                             InheritanceContract::new_as_parent(
-                                username.clone(), 
+                                ContractKind::Inheritance, 
                                 id,
                                 child.xprv, 
                                 Participant::new(
@@ -1287,7 +1287,7 @@ fn main() {
                             print!("Who is the parent (must be a registered username)?");
                             counter_party_alias = read!("{}\n");  
                             InheritanceContract::new_as_child(
-                                username.clone(), 
+                                ContractKind::Inheritance, 
                                 id,
                                 child.xprv, 
                                 Participant::new(
@@ -1749,7 +1749,12 @@ fn main() {
                     fmt_print_struct("CONTRACT STATUS: ", if is_completed{"ACTIVE"} else {"PENDING"});
                     if is_completed{
                         let encryption_key = key::encryption::key_hash256(&seed.xprv.to_string());
-                        let plain_text = format!("INHERITANCE {} {}",contract_id.clone(),&contract.clone().public_policy.unwrap());
+                        let plain_text = format!(
+                            "Inheritance {} {} {}",
+                            contract.clone().role.to_string(),
+                            contract_id.clone(),
+                            contract.clone().public_policy.unwrap()
+                        );
                         let backup = key::encryption::cc20p1305_encrypt(
                             &plain_text,
                             &encryption_key
@@ -1792,12 +1797,12 @@ fn main() {
                         return;
                     }
                     print!("Which alias to use ({}): ",existing_users.clone()[0]);
-                    let mut username: String = read!("{}\n");
+                    let mut _username: String = read!("{}\n");
 
-                    if username == "" || username == " "{
-                        username = existing_users[0].clone();
+                    if _username == "" || _username == " "{
+                        _username = existing_users[0].clone();
                     }
-                    else if !existing_users.contains(&username.clone()){
+                    else if !existing_users.contains(&_username.clone()){
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
@@ -1808,10 +1813,8 @@ fn main() {
                             seed                          
                         }
                         Err(_)=>{
-                            println!("===============================================");
-                            println!("NO KEYS FOUND. USE lotr key generate/import");
-                            println!("===============================================");
-                            return;                              
+                            fmt_print("NO KEYS FOUND. USE lotr key generate/import");
+                            return;                  
                         }
                     };
 
@@ -1824,6 +1827,17 @@ fn main() {
                         &decryption_key
                     ).unwrap();
                     fmt_print(&recovered);
+
+                    let recovered_parts:Vec<&str> = recovered.split(' ').collect();
+                    if recovered_parts.len() != 4 {
+                        fmt_print("MISSING RECOVERY PARTS!");
+                    }
+                    let contract_kind = recovered_parts[0];
+                    let contract_role = recovered_parts[1];
+                    let contract_id = recovered_parts[2];
+                    let contract_public_policy = recovered_parts[3];
+
+                    println!("TYPE: {}\nROLE: {}\nID: {}\nPUBLIC POLICY: {}",contract_kind,contract_role,contract_id,contract_public_policy)
 
                 }
                 _ => unreachable!(),
@@ -1880,7 +1894,7 @@ fn new_contract_from_data(
     let mut contract = match data.clone().role {
         InheritanceRole::Parent=>{
             InheritanceContract::new_as_child(
-                username.clone(), 
+                ContractKind::Inheritance, 
                 data.clone().id,
                 child.xprv, 
                 Participant::new(
@@ -1893,7 +1907,7 @@ fn new_contract_from_data(
         }
         InheritanceRole::Child=>{
             InheritanceContract::new_as_parent(
-                username.clone(), 
+                ContractKind::Inheritance, 
                 data.clone().id,
                 child.xprv, 
                 Participant::new(
