@@ -1754,8 +1754,14 @@ fn main() {
                             &plain_text,
                             &encryption_key
                         ).unwrap();
-                        fmt_print(&backup);
-                        fmt_print("BACKUP THE ABOVE CIPHER IN MULTIPLE PLACES.\nSTORE IT ON THE CLOUD.\nSTORE IT ON YOUR LAPTOP.\nPRINT IT OUT.");
+                        let code = QrCode::new(backup.clone().as_bytes()).unwrap();
+                        let image = code.render::<unicode::Dense1x2>()
+                            .dark_color(unicode::Dense1x2::Dark)
+                            .light_color(unicode::Dense1x2::Light)
+                            .build();
+                        println!("{}", image);
+                        println!("{}",backup.clone());
+                        fmt_print("BACKUP THE ABOVE CIPHER TEXT/QR IN MULTIPLE PLACES.\nSTORE IT ON THE CLOUD.\nSTORE IT ON YOUR LAPTOP.\nPRINT IT OUT.");
                     }
 
                     if !is_completed{
