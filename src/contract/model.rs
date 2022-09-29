@@ -155,6 +155,23 @@ impl InheritanceContract{
             Err(false)
         }
     }
+    pub fn get_private_descriptor(&mut self)->Result<String,bool>{
+        if self.clone().is_complete(){
+            let xpub = match self.clone().role{
+                InheritanceRole::Parent=>{
+                    self.clone().parent.key.unwrap().xpub.to_string()
+                }
+                InheritanceRole::Child=>{
+                    self.clone().child.key.unwrap().xpub.to_string()
+                }
+            };
+            let desc = self.clone().public_descriptor.unwrap().replace(&xpub,&self.xprv.to_string());
+            Ok(desc)
+        }
+        else{
+            Err(false)
+        }
+    }
     pub fn stringify(&self) -> Result<String, S5Error> {
         match serde_json::to_string(self) {
             Ok(result) => Ok(result),

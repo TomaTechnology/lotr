@@ -35,6 +35,7 @@ use network::post::{self, model::{Payload,Post,Recipient,DecryptionKey}, dto::{S
 
 mod contract;
 use crate::contract::model::{ContractKind,InheritanceContract,InheritanceContractPublicData, InheritanceRole,Participant,XPubInfo};
+use crate::contract::psbt::{TxOutputs,TxOutput,PolicyPath};
 
 use std::{thread, time};
 use tungstenite::{Message};
@@ -331,7 +332,7 @@ fn main() {
                     print!("Enter your bitcoin node host (default: Blockstream Testnet): ");
                     let mut bitcoin_host: String = read!("{}\n");
                     if bitcoin_host == "" || bitcoin_host == " "{
-                        bitcoin_host = DEFAULT_TESTNET_NODE.to_string();
+                        bitcoin_host = DEFAULT_MAINNET_NODE.to_string();
                     }    
                     let my_settings = MySettings::new(network_host, bitcoin_host, password);
                     settings::storage::create(my_settings.clone()).unwrap();
@@ -353,7 +354,7 @@ fn main() {
                 }
                 print!("Enter your bitcoin node host ({}): ",my_settings.bitcoin_host);
                 let bitcoin_host: String = read!("{}\n");
-                if bitcoin_host != "" || bitcoin_host != " "{}
+                if bitcoin_host == "" || bitcoin_host == " "{}
                 else{
                     my_settings.bitcoin_host = bitcoin_host;
                 }
@@ -1422,8 +1423,20 @@ fn main() {
                         return
                     }
 
-                    print!("Enter your contract id: ");
-                    let contract_id: String = read!("{}\n");
+                    let existing_ids = contract::storage::get_contract_indexes(username.clone());
+                    if existing_ids.len() < 1{
+                        fmt_print("NO CONTRACTS FOUND!");
+                        return;
+                    }
+                    print!("Which contract to use ({}): ",existing_ids.clone()[0]);
+                    let mut contract_id: String = read!("{}\n");
+                    if contract_id == "" || contract_id == " "{
+                        contract_id = existing_ids[0].clone();
+                    }
+                    else if !existing_ids.contains(&contract_id.clone()){
+                        fmt_print("CONTRACT ID NOT REGISTERED!");
+                        return
+                    }
 
                     let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
                     let is_completed = contract.clone().is_complete();
@@ -1497,9 +1510,21 @@ fn main() {
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
+                    let existing_ids = contract::storage::get_contract_indexes(username.clone());
+                    if existing_ids.len() < 1{
+                        fmt_print("NO CONTRACTS FOUND!");
+                        return;
+                    }
+                    print!("Which contract to use ({}): ",existing_ids.clone()[0]);
+                    let mut contract_id: String = read!("{}\n");
+                    if contract_id == "" || contract_id == " "{
+                        contract_id = existing_ids[0].clone();
+                    }
+                    else if !existing_ids.contains(&contract_id.clone()){
+                        fmt_print("CONTRACT ID NOT REGISTERED!");
+                        return
+                    }
 
-                    print!("Enter your contract id: ");
-                    let contract_id: String = read!("{}\n");
                     let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
                     let sqlite_path = format!("{}/{}", std::env::var("HOME").unwrap(), DEFAULT_SQLITE);
                     let config = WalletConfig::new(
@@ -1529,6 +1554,141 @@ fn main() {
                 Some(("broadcast", _)) => {
                 }
                 Some(("send", _))=>{
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                            return;
+                        } 
+                    };
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                        return;
+                    }
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+                    let existing_ids = contract::storage::get_contract_indexes(username.clone());
+                    if existing_ids.len() < 1{
+                        fmt_print("NO CONTRACTS FOUND!");
+                        return;
+                    }
+                    print!("Which contract to use ({}): ",existing_ids.clone()[0]);
+                    let mut contract_id: String = read!("{}\n");
+                    if contract_id == "" || contract_id == " "{
+                        contract_id = existing_ids[0].clone();
+                    }
+                    else if !existing_ids.contains(&contract_id.clone()){
+                        fmt_print("CONTRACT ID NOT REGISTERED!");
+                        return
+                    }
+                    
+                    let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
+                    let sqlite_path = format!("{}/{}", std::env::var("HOME").unwrap(), DEFAULT_SQLITE);
+                    let config = WalletConfig::new(
+                        &contract.clone().public_descriptor.unwrap(),
+                        DEFAULT_MAINNET_NODE,
+                        None,
+                        Some(sqlite_path.clone())
+                    ).unwrap();
+                    contract::sync::sqlite(config).unwrap();
+
+                    let config = WalletConfig::new(
+                        &contract.clone().get_private_descriptor().unwrap(),
+                        DEFAULT_MAINNET_NODE,
+                        None,
+                        Some(sqlite_path.clone())
+                    ).unwrap();
+                    let id = contract::policy::id(config).unwrap();
+                    let policy_path = contract::psbt::PolicyPath::new(id.1,[0].to_vec()).to_btreemap();
+
+                    print!("Which address to send to?: ",);
+                    let address: String = read!("{}\n");
+                    print!("How much to send (amount in sats OR (S)weep): ",);
+                    let amount: String = read!("{}\n");
+                    let sweep = if amount == "S" || amount == "s" {
+                        true
+                    }
+                    else{
+                        false
+                    };
+
+                    let amount_u64:u64 = if !sweep {
+                        amount.parse::<u64>().unwrap()
+                    }
+                    else{
+                        0
+                    };
+
+                    let outputs: TxOutputs = TxOutput::vec_from_str(&format!("{}:{}",address,amount_u64)).unwrap();
+
+                    print!("Set Absolute Fee (in sats)?: ",);
+                    let fee: String = read!("{}\n");
+                    let fee_absolute = fee.parse::<u64>().unwrap();
+
+                    let config = WalletConfig::new(
+                        &contract.clone().get_private_descriptor().unwrap(),
+                        DEFAULT_MAINNET_NODE,
+                        None,
+                        Some(sqlite_path.clone())
+                    ).unwrap();
+                    let unsigned = contract::psbt::sqlite_build(
+                        config,
+                        outputs,
+                        fee_absolute,
+                        Some(policy_path),
+                        sweep
+                    ).unwrap();
+
+                    let decoded = contract::psbt::decode(
+                        Network::Bitcoin,
+                        &unsigned.psbt
+                    ).unwrap();
+
+                    fmt_print_struct("TRANSACTION DETAILS:", decoded);
+                    print!("Sign and broadcast (Y)es/(N)o?: ",);
+                    let y: String = read!("{}\n");
+                    if y.to_lowercase() == "y"{
+                        let config = WalletConfig::new_offline(
+                            &contract.clone().get_private_descriptor().unwrap(),
+                            Some(sqlite_path.clone())
+                        ).unwrap();
+                        let signed = contract::psbt::sign(
+                            config,
+                            &unsigned.psbt
+                        ).unwrap();
+                        let config = WalletConfig::new(
+                            &contract.clone().public_descriptor.unwrap(),
+                            DEFAULT_MAINNET_NODE,
+                            None,
+                            Some(sqlite_path.clone())
+                        ).unwrap();
+                        contract::psbt::broadcast(
+                            config,
+                            &signed.psbt
+                        ).unwrap();
+                        fmt_print("BROADCASTED!")
+                    }
+                    else{
+                        fmt_print("ABORTING!")
+                    }
+
+
+                    
 
                 }
                 Some(("backup", _)) => {

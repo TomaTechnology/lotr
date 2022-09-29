@@ -43,6 +43,20 @@ pub fn delete_inheritance_contract(username: String, id: String)->bool{
     true
 }
 
+pub fn get_contract_indexes(username: String) -> Vec<String>{
+    let root = sleddb::get_root(sleddb::LotrDatabase::Contract,Some(username)).unwrap();
+    let mut ids: Vec<String> = [].to_vec();
+    for key in root.tree_names().iter() {
+        let id = str::from_utf8(key).unwrap();
+        if id.starts_with("__"){
+        }
+        else{
+            ids.push(id.to_string());
+        };
+    }
+    ids
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

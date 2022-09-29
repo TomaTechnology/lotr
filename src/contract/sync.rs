@@ -10,7 +10,7 @@ pub fn sqlite(config: WalletConfig) -> Result<(), S5Error> {
     if config.client.is_none(){
         return Err(S5Error::new(ErrorKind::Input, "SQLite Sync Requires a Blockchain Client"));
     }
-
+    
     let wallet = match Wallet::new(
         &config.deposit_desc,
         Some(&config.change_desc),
