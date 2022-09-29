@@ -289,14 +289,6 @@ fn main() {
                     Command::new("backup")
                     .about("Backup your contract")
                     .display_order(7)
-                    .arg(
-                        Arg::with_name("label")
-                        .takes_value(true)
-                        .short('l')
-                        .long("label")
-                        .help("Name given to the psbt")
-                    )
-                    .arg_required_else_help(true),
                 )
                 .subcommand(
                     Command::new("recover")
@@ -1441,6 +1433,9 @@ fn main() {
                     let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
                     let is_completed = contract.clone().is_complete();
                     fmt_print_struct("CONTRACT STATUS: ", if is_completed{"ACTIVE"} else {"PENDING"});
+                    if is_completed{
+                        fmt_print(&contract.clone().public_policy.unwrap());
+                    }
 
                     if !is_completed{
                         return;
@@ -1692,8 +1687,135 @@ fn main() {
 
                 }
                 Some(("backup", _)) => {
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                            return;
+                        } 
+                    };
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                        return;
+                    }
+
+
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+
+                    let existing_ids = contract::storage::get_contract_indexes(username.clone());
+                    if existing_ids.len() < 1{
+                        fmt_print("NO CONTRACTS FOUND!");
+                        return;
+                    }
+                    print!("Which contract to use ({}): ",existing_ids.clone()[0]);
+                    let mut contract_id: String = read!("{}\n");
+                    if contract_id == "" || contract_id == " "{
+                        contract_id = existing_ids[0].clone();
+                    }
+                    else if !existing_ids.contains(&contract_id.clone()){
+                        fmt_print("CONTRACT ID NOT REGISTERED!");
+                        return
+                    }
+                    let seed = match key::storage::read_keys(password.clone(), Network::Bitcoin)
+                    {
+                        Ok(seed)=>{
+                            seed                          
+                        }
+                        Err(_)=>{
+                            println!("===============================================");
+                            println!("NO KEYS FOUND. USE lotr key generate/import");
+                            println!("===============================================");
+                            return;                              
+                        }
+                    };
+
+                    let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
+                    let is_completed = contract.clone().is_complete();
+                    fmt_print_struct("CONTRACT STATUS: ", if is_completed{"ACTIVE"} else {"PENDING"});
+                    if is_completed{
+                        let encryption_key = key::encryption::key_hash256(&seed.xprv.to_string());
+                        let backup = key::encryption::cc20p1305_encrypt(
+                            &contract.clone().public_policy.unwrap(),
+                            &encryption_key
+                        ).unwrap();
+                        fmt_print(&backup);
+                    }
+
+                    if !is_completed{
+                        return;
+                    }
+
+
                 }
                 Some(("recover", _)) => {
+                    let settings = match settings::storage::read(){
+                        Ok(value)=>value,
+                        Err(e)=>{
+                            fmt_print_struct("ERRORED!",e);
+                            return;
+                        } 
+                    };
+                    print!("Enter your password: ");
+                    std::io::stdout().flush().unwrap();
+                    let password = read_password().unwrap();   
+                    if !settings.check_password(password.clone()) {
+                        fmt_print("BAD PASSWORD");
+                        return;
+                    }
+
+                    let existing_users = identity::storage::get_username_indexes(settings.clone().network_host);
+                    if existing_users.len() < 1{
+                        fmt_print("NO USERS REGISTERED!");
+                        return;
+                    }
+                    print!("Which alias to use ({}): ",existing_users.clone()[0]);
+                    let mut username: String = read!("{}\n");
+                    if username == "" || username == " "{
+                        username = existing_users[0].clone();
+                    }
+                    else if !existing_users.contains(&username.clone()){
+                        fmt_print("ALIAS IS NOT REGISTERED!");
+                        return
+                    }
+                    let seed = match key::storage::read_keys(password.clone(), Network::Bitcoin)
+                    {
+                        Ok(seed)=>{
+                            seed                          
+                        }
+                        Err(_)=>{
+                            println!("===============================================");
+                            println!("NO KEYS FOUND. USE lotr key generate/import");
+                            println!("===============================================");
+                            return;                              
+                        }
+                    };
+
+                    print!("Enter recovery data: ",);
+                    let backup_data: String = read!("{}\n");
+
+                    let decryption_key = key::encryption::key_hash256(&seed.xprv.to_string());
+                    let recovered = key::encryption::cc20p1305_decrypt(
+                        &backup_data,
+                        &decryption_key
+                    ).unwrap();
+                    fmt_print(&recovered);
+
                 }
                 _ => unreachable!(),
             }
