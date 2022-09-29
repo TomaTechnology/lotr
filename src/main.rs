@@ -1124,7 +1124,6 @@ fn main() {
  
                 }
                 Some(("remove", _)) => {
-
                     let settings = match settings::storage::read(){
                         Ok(value)=>value,
                         Err(e)=>{
@@ -1535,7 +1534,7 @@ fn main() {
                     let code = QrCode::new(address.address.as_bytes()).unwrap();
                     let image = code.render::<unicode::Dense1x2>()
                         .dark_color(unicode::Dense1x2::Dark)
-                        .light_color(unicode::Dense1x2::Dark)
+                        .light_color(unicode::Dense1x2::Light)
                         .build();
                     println!("{}", image);
                     fmt_print(&address.address);
@@ -1745,16 +1744,18 @@ fn main() {
                         }
                     };
 
-                    let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id,password.clone()).unwrap();
+                    let contract = contract::storage::read_inheritance_contract(username.clone(),contract_id.clone(),password.clone()).unwrap();
                     let is_completed = contract.clone().is_complete();
                     fmt_print_struct("CONTRACT STATUS: ", if is_completed{"ACTIVE"} else {"PENDING"});
                     if is_completed{
                         let encryption_key = key::encryption::key_hash256(&seed.xprv.to_string());
+                        let plain_text = format!("INHERITANCE {} {}",contract_id.clone(),&contract.clone().public_policy.unwrap());
                         let backup = key::encryption::cc20p1305_encrypt(
-                            &contract.clone().public_policy.unwrap(),
+                            &plain_text,
                             &encryption_key
                         ).unwrap();
                         fmt_print(&backup);
+                        fmt_print("BACKUP THE ABOVE CIPHER IN MULTIPLE PLACES.\nSTORE IT ON THE CLOUD.\nSTORE IT ON YOUR LAPTOP.\nPRINT IT OUT.");
                     }
 
                     if !is_completed{
@@ -1786,6 +1787,7 @@ fn main() {
                     }
                     print!("Which alias to use ({}): ",existing_users.clone()[0]);
                     let mut username: String = read!("{}\n");
+
                     if username == "" || username == " "{
                         username = existing_users[0].clone();
                     }
@@ -1793,6 +1795,7 @@ fn main() {
                         fmt_print("ALIAS IS NOT REGISTERED!");
                         return
                     }
+
                     let seed = match key::storage::read_keys(password.clone(), Network::Bitcoin)
                     {
                         Ok(seed)=>{
