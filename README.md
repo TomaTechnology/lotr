@@ -2,7 +2,6 @@
 
 ## a cli tool to facilitate multi-party bitcoin contracts
 
-
 ### Installation
 
 First install rust's toolkit
@@ -32,21 +31,50 @@ cargo test
 cargo run 
 # Displays the command line options
 
-cargo run mk
+cargo run setup
+# Setup configurations for network host, bitcoin host and mute list
+
+cargo run key
 # Displays all the master key subcommands
 
-cargo run mk generate --username "ishi"
+cargo run key generate 
 # Creates a new master key and encrypts it 
 
-cargo run mk import --username "bugs"
+cargo run key import 
 # Imports a master key from a mnemonic and encrypts it
 
-cargo run mk status
+cargo run key status
 # Shows existing keys in storage
 
-cargo run mk delete --username "ishi"
+cargo run key delete
 # Deletes the selected key
 
+cargo run network invite
+# ADMIN COMMAND to invite new users by generating an invite code
+
+cargo run network join
+# Join the network using an invite code from an admin
+
+cargo run network members
+# View all members on the network
+
+cargo run network sync
+# Blocks the terminal with a strem of messages from the network
+
+cargo run network post
+# Posts a message to another member
+
+cargo run contract new
+# Starts a new contract
+
+cargo run contract info
+# Gets status of a contract and displays history and balance of an active contract
+
+cargo run contract receive
+# Gets an address to receive bitcoin into the contract
+
+cargo run contract send
+# Makes a payment from the contract
 ```
 
 ### Releases
@@ -57,8 +85,7 @@ Build and copy binary to a bin directory
 
 ```bash
 cargo build --release
-chmod +x target/release/lotr
-sudo cp target/release/lotr /usr/local/bin
+cp target/release/lotr /usr/local/bin
 ```
 
 #### Verifying a github release from toma.tech
