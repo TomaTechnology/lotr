@@ -1224,9 +1224,7 @@ fn main() {
                             seed                          
                         }
                         Err(_)=>{
-                            println!("===============================================");
-                            println!("NO KEYS FOUND. USE lotr key generate/import");
-                            println!("===============================================");
+                            fmt_print("NO KEYS FOUND. USE lotr key generate/import");
                             return;                              
                         }
                     };
@@ -1272,7 +1270,7 @@ fn main() {
                             print!("Who is the child (must be a registered username)?");
                             counter_party_alias = read!("{}\n");  
                             InheritanceContract::new_as_parent(
-                                ContractKind::Inheritance, 
+                                ContractKind::Inheritance.to_string(), 
                                 id,
                                 child.xprv, 
                                 Participant::new(
@@ -1287,7 +1285,7 @@ fn main() {
                             print!("Who is the parent (must be a registered username)?");
                             counter_party_alias = read!("{}\n");  
                             InheritanceContract::new_as_child(
-                                ContractKind::Inheritance, 
+                                ContractKind::Inheritance.to_string(), 
                                 id,
                                 child.xprv, 
                                 Participant::new(
@@ -1737,9 +1735,7 @@ fn main() {
                             seed                          
                         }
                         Err(_)=>{
-                            println!("===============================================");
-                            println!("NO KEYS FOUND. USE lotr key generate/import");
-                            println!("===============================================");
+                            fmt_print("NO KEYS FOUND. USE lotr key generate/import");
                             return;                              
                         }
                     };
@@ -1750,7 +1746,8 @@ fn main() {
                     if is_completed{
                         let encryption_key = key::encryption::key_hash256(&seed.xprv.to_string());
                         let plain_text = format!(
-                            "Inheritance {} {} {}",
+                            "{} {} {} {}",
+                            contract.clone().name.to_string(),
                             contract.clone().role.to_string(),
                             contract_id.clone(),
                             contract.clone().public_policy.unwrap()
@@ -1837,7 +1834,8 @@ fn main() {
                     let contract_id = recovered_parts[2];
                     let contract_public_policy = recovered_parts[3];
 
-                    println!("TYPE: {}\nROLE: {}\nID: {}\nPUBLIC POLICY: {}",contract_kind,contract_role,contract_id,contract_public_policy)
+                    println!("\x1b[93;1mNAME\x1b[0m : {}\n\x1b[93;1mROLE\x1b[0m : {}\n\x1b[93;1mID\x1b[0m : {}\n\x1b[93;1mPUBLIC POLICY\x1b[0m : {}",contract_kind,contract_role,contract_id,contract_public_policy)
+                    println!("=========================================================================");
 
                 }
                 _ => unreachable!(),
@@ -1894,7 +1892,7 @@ fn new_contract_from_data(
     let mut contract = match data.clone().role {
         InheritanceRole::Parent=>{
             InheritanceContract::new_as_child(
-                ContractKind::Inheritance, 
+                ContractKind::Inheritance.to_string(), 
                 data.clone().id,
                 child.xprv, 
                 Participant::new(
@@ -1907,7 +1905,7 @@ fn new_contract_from_data(
         }
         InheritanceRole::Child=>{
             InheritanceContract::new_as_parent(
-                ContractKind::Inheritance, 
+                ContractKind::Inheritance.to_string(), 
                 data.clone().id,
                 child.xprv, 
                 Participant::new(

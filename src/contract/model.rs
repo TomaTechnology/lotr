@@ -73,7 +73,7 @@ impl InheritanceRole {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InheritanceContract{
-    pub name : ContractKind, 
+    pub name : String, 
     pub id: String,
     pub role: InheritanceRole,
     pub xprv: ExtendedPrivKey,
@@ -85,7 +85,7 @@ pub struct InheritanceContract{
 }
 
 impl InheritanceContract{
-    pub fn new_as_parent(name: ContractKind, id: String, xprv: ExtendedPrivKey, parent: Participant, child_name: String, timelock: u64)->Self{
+    pub fn new_as_parent(name: String, id: String, xprv: ExtendedPrivKey, parent: Participant, child_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
             id,
@@ -98,7 +98,7 @@ impl InheritanceContract{
             public_descriptor: None,
         }
     }
-    pub fn new_as_child(name: ContractKind, id: String, xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
+    pub fn new_as_child(name: String, id: String, xprv: ExtendedPrivKey, child: Participant, parent_name: String, timelock: u64)->Self{
         InheritanceContract{
             name,
             id,
@@ -191,7 +191,7 @@ impl InheritanceContract{
         match serde_json::from_str(stringified) {
             Ok(result) => Ok(result),
             Err(_) => {
-                Err(S5Error::new(ErrorKind::Internal, "Error stringifying InheritanceContract"))
+                Err(S5Error::new(ErrorKind::Internal, "Error structifying InheritanceContract"))
             }
         }
     }
@@ -211,14 +211,14 @@ impl InheritanceContract{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InheritanceContractPublicData{
-    pub name : ContractKind, 
+    pub name : String, 
     pub id: String,
     pub role: InheritanceRole,
     pub counter_party: XPubInfo,
     pub timelock: u64
 }
 impl InheritanceContractPublicData{
-    pub fn new(name: ContractKind, id: String, role: InheritanceRole, counter_party: XPubInfo, timelock: u64) -> InheritanceContractPublicData{
+    pub fn new(name: String, id: String, role: InheritanceRole, counter_party: XPubInfo, timelock: u64) -> InheritanceContractPublicData{
         InheritanceContractPublicData{
             name,
             id: id,
@@ -304,7 +304,7 @@ mod tests {
         );
 
         let mut contract_parent = InheritanceContract::new_as_parent(
-            ContractKind::Inheritance,
+            ContractKind::Inheritance.to_string(),
             nonce(),
             seed1.xprv,
             Participant::new(
@@ -328,7 +328,7 @@ mod tests {
         );
 
         let mut contract_child = InheritanceContract::new_as_child(
-            ContractKind::Inheritance,
+            ContractKind::Inheritance.to_string(),
             nonce(),
             seed2.xprv,
             Participant::new(
