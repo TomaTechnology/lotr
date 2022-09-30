@@ -11,6 +11,8 @@ use crate::key::encryption::{cc20p1305_encrypt,cc20p1305_decrypt};
 pub const LOTR : &str = "thresh(1, thresh(2,D,B,E), thresh(2,thresh(1,D,B),after(T)))";
 pub const TRADE : &str = "thresh(1, thresh(2,B,S,E), thresh(2,S,after(T)))";
 pub const INHERIT : &str = "thresh(1,pk(PARENT),thresh(2,pk(CHILD),after(TIMELOCK)))";
+pub const RESERVE_MULTI : &str = "thresh(2, thresh(2,ME,ME2,CUSTODIAN), after(TIMELOCK))";
+pub const RESERVE_SOLO : &str = "thresh(2, pk(ME), after(TIMELOCK))";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ContractKind{
@@ -206,6 +208,7 @@ impl InheritanceContract{
 
         Ok(InheritanceContract::structify(&id).unwrap())
     }
+
 
 }
 

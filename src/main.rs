@@ -1770,7 +1770,6 @@ fn main() {
                         return;
                     }
 
-
                 }
                 Some(("recover", _)) => {
                     let settings = match settings::storage::read(){
@@ -1823,7 +1822,6 @@ fn main() {
                         &backup_data,
                         &decryption_key
                     ).unwrap();
-                    fmt_print(&recovered);
 
                     let recovered_parts:Vec<&str> = recovered.split(' ').collect();
                     if recovered_parts.len() != 4 {
@@ -1834,7 +1832,12 @@ fn main() {
                     let contract_id = recovered_parts[2];
                     let contract_public_policy = recovered_parts[3];
 
-                    println!("\x1b[93;1mNAME\x1b[0m : {}\n\x1b[93;1mROLE\x1b[0m : {}\n\x1b[93;1mID\x1b[0m : {}\n\x1b[93;1mPUBLIC POLICY\x1b[0m : {}",contract_kind,contract_role,contract_id,contract_public_policy)
+                    println!("\x1b[93;1mNAME\x1b[0m : {}\n\x1b[93;1mROLE\x1b[0m : {}\n\x1b[93;1mID\x1b[0m : {}\n\x1b[93;1mPUBLIC POLICY\x1b[0m : {}",
+                        contract_kind,
+                        contract_role,
+                        contract_id,
+                        contract_public_policy
+                    );
                     println!("=========================================================================");
 
                 }
