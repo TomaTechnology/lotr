@@ -8,6 +8,27 @@ use crate::network::identity::model::{MemberIdentity};
 use crate::lib::e::{ErrorKind, S5Error};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InviteCodeResponse{
+    pub genesis : u64,
+    pub invite_code: String,
+    pub kind: String,
+    pub status: String,
+    pub claimed_by: String,
+    pub created_by: String,
+    pub count: u8,
+}
+impl InviteCodeResponse{
+    pub fn structify(stringified: &str) -> Result<InviteCodeResponse, S5Error> {
+        match serde_json::from_str(stringified) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                Err(S5Error::new(ErrorKind::Internal, "Error stringifying InviteCodeResponse"))
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AdminInviteResponse{
     pub invite_code: String
 }
@@ -66,15 +87,11 @@ pub fn register(host: &str,keypair: XOnlyPair, invite_code: &str, username: &str
         .set(&HttpHeader::Nonce.to_string(), &nonce)
         .send_json(body){
             Ok(response)=>  
-                match ServerStatusResponse::structify(&response.into_string().unwrap())
+                match InviteCodeResponse::structify(&response.into_string().unwrap())
                 {
-                    Ok(result)=>{
-                        if result.status {
-                            Ok(())
-                        }
-                        else {
-                            Err(S5Error::new(ErrorKind::Network, "Server returned a false status."))
-                        }
+                    Ok(_)=>{
+                        Ok(())
+                 
                     },
                     Err(e) =>{
                         Err(e)

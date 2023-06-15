@@ -131,7 +131,7 @@ mod tests {
         username: "ishi".to_string(),
         account: 0,
         social_root: social_child1.xprv,
-        last_path: "m/1/23".to_string(),
+        last_index: 2,
     };
     let password = "secret".to_string();
 

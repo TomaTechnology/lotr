@@ -904,16 +904,17 @@ fn main() {
                     let post = Post::new(recipient, message_to_share, keypair.clone()); 
                     let encryption_key = identity.derive_encryption_key();
                     let cypher_json = post.to_cypher(encryption_key.clone());
-                    let cpost_req = ServerPostRequest::new(0, &identity.last_path,&cypher_json);
+                    let cpost_req = ServerPostRequest::new(0, identity.last_index,&cypher_json);
 
                     let post_id = match network::post::dto::create(&host, keypair.clone(),cpost_req){
                         Ok(id)=>{
+                            // update identity with last_path
                             network::identity::storage::create_my_identity(settings.clone().network_host,identity.clone(), password).unwrap();
                             id
                         }
                         Err(e)=>{
                             if e.kind == ErrorKind::Input.to_string(){
-                                fmt_print("BAD INPUTS!\nCheck the username and invite code used!");
+                                fmt_print("BAD INPUTS!\nCheck the username and post values!");
                                 return
                             }
                             else{
@@ -1187,8 +1188,7 @@ fn main() {
                             }
                         }
                     }  
-                }
-                
+                }       
                 _ => unreachable!(),
             }
         }
@@ -1336,7 +1336,7 @@ fn main() {
                     let post = Post::new(recipient, message_to_share, keypair.clone()); 
                     let encryption_key = identity.derive_encryption_key();
                     let cypher_json = post.to_cypher(encryption_key.clone());
-                    let cpost_req = ServerPostRequest::new(0, &identity.last_path,&cypher_json);
+                    let cpost_req = ServerPostRequest::new(0, identity.last_index,&cypher_json);
 
                     let post_id = match network::post::dto::create(&host, keypair.clone(),cpost_req){
                         Ok(id)=>{
@@ -1853,7 +1853,7 @@ fn main() {
             println!("\x1b[93;1m{}\x1b[0m", title);
             println!("{}", subtitle);
             println!("{contents}");
-            println!("098f6bcd4621d373cade4e832627b4f6");
+            println!("da7c3d2b4dcaf0b3570fb7b1e2cb1e91");
             println!("COMPLETE GUIDE COMING SOON!");
         }
         None => println!("No subcommand was used. try `lotr help`."), 
@@ -1954,7 +1954,7 @@ fn new_contract_from_data(
     let post = Post::new(recipient, message_to_share, keypair.clone()); 
     let encryption_key = identity.derive_encryption_key();
     let cypher_json = post.to_cypher(encryption_key.clone());
-    let cpost_req = ServerPostRequest::new(0, &identity.last_path,&cypher_json);
+    let cpost_req = ServerPostRequest::new(0, identity.last_index,&cypher_json);
 
     let post_id = match network::post::dto::create(&host, keypair.clone(),cpost_req){
         Ok(id)=>{

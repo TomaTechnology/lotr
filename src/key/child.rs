@@ -118,6 +118,28 @@ pub fn to_path_str(root: ExtendedPrivKey, derivation_path: &str) -> Result<Child
     })
 }
 
+pub fn to_path_index(root: ExtendedPrivKey, index: u64) -> Result<ChildKeys, S5Error> {
+    let secp = Secp256k1::new();
+    let fingerprint = root.fingerprint(&secp);
+    let derivation_path = &format!("m/{}h",index);
+    let path = match DerivationPath::from_str(derivation_path) {
+        Ok(path) => path,
+        Err(_) => return Err(S5Error::new(ErrorKind::Key, "Invalid Derivation Path.")),
+    };
+    let child_xprv = match root.derive_priv(&secp, &path) {
+        Ok(xprv) => xprv,
+        Err(e) => return Err(S5Error::new(ErrorKind::Key, &e.to_string())),
+    };
+    let child_xpub = ExtendedPubKey::from_priv(&secp, &child_xprv);
+
+    Ok(ChildKeys {
+        fingerprint: fingerprint.to_string(),
+        hardened_path: derivation_path.to_string(),
+        xprv: child_xprv,
+        xpub: child_xpub,
+    })
+}
+
 pub fn check_xpub(xpub: &str) -> bool {
     ExtendedPubKey::from_str(xpub).is_ok()
 }

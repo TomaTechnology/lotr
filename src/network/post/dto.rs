@@ -13,15 +13,15 @@ use bitcoin::secp256k1::{XOnlyPublicKey};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServerPostRequest{
     expiry: u64,
-    derivation_scheme: String,
+    derivation_index: u64,
     cypher_json: String
 }
 
 impl ServerPostRequest{
-    pub fn new(expiry: u64, derivation_scheme: &str, cypher_json: &str)->ServerPostRequest{
+    pub fn new(expiry: u64, derivation_index: u64, cypher_json: &str)->ServerPostRequest{
         ServerPostRequest {
             expiry,
-            derivation_scheme: derivation_scheme.to_string(),
+            derivation_index: derivation_index,
             cypher_json: cypher_json.to_string()
         }
     }
@@ -153,7 +153,7 @@ pub struct ServerPostModel{
     pub expiry: u64,
     pub owner: XOnlyPublicKey,
     pub cypher_json: String,
-    pub derivation_scheme: String,
+    pub derivation_index: u64,
     pub decryption_key: Option<String>
 }
 impl ServerPostModel{
@@ -165,7 +165,7 @@ impl ServerPostModel{
 
         // check if reponse owner is self or other
         if self.owner == my_xonly_pair.pubkey {
-            let decryption_key_root = child::to_path_str(social_root, &self.clone().derivation_scheme).unwrap();
+            let decryption_key_root = child::to_path_index(social_root, self.clone().derivation_index).unwrap();
             let decryption_key = key_hash256(&decryption_key_root.xprv.to_string());
             let plain_json_string = match cc20p1305_decrypt(&self.clone().cypher_json, &decryption_key){
                 Ok(result)=>result,
@@ -388,7 +388,7 @@ mod tests {
         let encryption_key = my_identity.derive_encryption_key();
         println!("{encryption_key}");
         let cypher_json = post.to_cypher(encryption_key.clone());
-        let cpost_req = ServerPostRequest::new(0, &my_identity.last_path,&cypher_json);
+        let cpost_req = ServerPostRequest::new(0, my_identity.last_index,&cypher_json);
         let post_id = create(url,xonly_pair1.clone(), cpost_req).unwrap();
         assert_eq!(post_id.len(), 24);
         let decrypkeys = DecryptionKey::make_for_many(xonly_pair1.clone(),[xonly_pair2.clone().pubkey,xonly_pair3.clone().pubkey].to_vec(), encryption_key).unwrap();

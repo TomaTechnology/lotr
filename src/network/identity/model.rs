@@ -18,7 +18,7 @@ pub struct UserIdentity{
     pub username: String,
     pub account: u64,
     pub social_root: ExtendedPrivKey,
-    pub last_path: String,
+    pub last_index: u64,
 }
 
 impl UserIdentity {
@@ -29,7 +29,7 @@ impl UserIdentity {
             username,
             account,
             social_root,
-            last_path: "m/1h/0h".to_string()
+            last_index: 0
         }
     }
     pub fn stringify(&self) -> Result<String, S5Error> {
@@ -60,16 +60,7 @@ impl UserIdentity {
         Ok(UserIdentity::structify(&id).unwrap())
     }
     fn increment_path(&mut self)->(){
-        let last_ds = &self.clone().last_path;
-        let mut split_ds: Vec<String> = last_ds.replace("h","").replace("'","").split("/").map(|s| s.to_string()).collect();
-        let rotator = split_ds.pop().unwrap().parse::<u64>().unwrap() + 1;
-        let join: String = split_ds.into_iter().map(|val| {
-            if val == "m" { val + "/"} 
-            else { val + "h/" }
-        }).collect();
-        let new_ds = join + &rotator.to_string() + "h";
-        
-        self.last_path = new_ds;
+        self.last_index += 1;
         ()
     }
     pub fn to_member_id(&self)->MemberIdentity{
@@ -85,7 +76,7 @@ impl UserIdentity {
     }
     pub fn derive_encryption_key(&mut self)->String{
         self.increment_path();
-        let enc_source = child::to_path_str(self.social_root, &self.last_path).unwrap().xprv.to_string();
+        let enc_source = child::to_path_index(self.social_root, self.last_index).unwrap().xprv.to_string();
         encryption::key_hash256(&enc_source)
     }
 }
